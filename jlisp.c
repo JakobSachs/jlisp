@@ -29,6 +29,8 @@ void lenv_free(lenv *e) {
 }
 
 lval *lenv_get(lenv *e, lval *k) {
+  // THIS IS BADDDDD
+  // env should likely be a hash-map, not this cursed O(n) lookup
   for (unsigned i = 0; i < e->count; i++) {
     if (strcmp(e->syms[i], k->sym) == 0)
       return lval_duplicate(e->lvals[i]);
@@ -434,6 +436,19 @@ lval *builtin_head(__attribute__((unused)) lenv *e, lval *v) {
   lval *x = lval_take(v, 0); // take first elem
   while (x->count > 1)
     lval_free(lval_pop(x, 1)); // delete all but first value
+  return x;
+}
+lval *builtin_last(__attribute__((unused)) lenv *e, lval *v) {
+  LASSERT(v, v->count == 1,
+          "Function 'last' passed too many args! Got %u, expected 1", v->count);
+  LASSERT(v, v->cell[0]->type == LVAL_QEXPR,
+          "Function 'last' incorrect type! Got %s, expected %s",
+          ltype_name(v->cell[0]->type), ltype_name(LVAL_QEXPR));
+  LASSERT(v, v->cell[0]->count > 0, "Function 'last' passed {}!");
+
+  lval *x = lval_take(v, 0); // take first elem
+  while (x->count > 1)
+    lval_free(lval_pop(x, 0)); 
   return x;
 }
 
@@ -850,6 +865,7 @@ lval *lval_read(mpc_ast_t *t) {
 void lenv_add_builtins(lenv *e) {
   lenv_add_builtin(e, "list", builtin_list);
   lenv_add_builtin(e, "head", builtin_head);
+  lenv_add_builtin(e, "last", builtin_last);
   lenv_add_builtin(e, "tail", builtin_tail);
   lenv_add_builtin(e, "eval", builtin_eval);
   lenv_add_builtin(e, "join", builtin_join);
