@@ -1,66 +1,87 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
-use std::rc::Rc;
 use std::vec::Vec;
 
-use slotmap::{SecondaryMap, SlotMap};
+use slotmap::{SlotMap};
 
 pub type EnvId = slotmap::DefaultKey;
-
-struct EnvStorage {
-    pool: SlotMap<EnvId, EnvData>,
-}
-
-impl EnvStorage {
-    pub fn new() -> Self {
-        Self {
-            pool: SlotMap::with_key(),
-        }
-    }
-
-    pub fn create(&mut self, parent: Option<Env>) -> Env {
-        let id = self.pool.insert(EnvData {
-            map: HashMap::new(),
-            parent: parent.map(|p| p.0),
-        });
-        Env(id)
-    }
-    pub fn get(&self, mut env: Env, key: &str) -> Option<&Expr> {
-        loop {
-            let data = &self.pool[env.0];
-            if let Some(v) = data.map.get(key) {
-                return Some(v);
-            }
-
-            // walk up
-            match data.parent {
-                Some(p) => env = Env(p),
-                None => return None,
-            }
-        }
-    }
-
-    pub fn insert(&mut self, env: Env, key: String, val: Expr)  {
-        let _ = self.pool[env.0].map.insert(key, val);
-    }
-    
-    pub fn set_parent(&mut self, 
-        env: Env, 
-        parent: Option<Env>) {
-        self.pool[env.0].parent = parent.map(|p| p.0);
-    }
-
-
-}
 
 #[derive(Debug, Clone)]
 struct EnvData {
     pub map: HashMap<String, Expr>,
     pub parent: Option<EnvId>,
 }
-#[derive(Debug, Clone)]
+
+thread_local! {
+    static ENV_STORAGE: RefCell<SlotMap<EnvId, EnvData>> = RefCell::new(SlotMap::with_key());
+}
+
+/// Environment handle - cheap to copy and pass around
+#[derive(Debug, Clone, Copy)]
 pub struct Env(EnvId);
+
+impl Env {
+    /// Create a new root environment
+    pub fn new() -> Self {
+        ENV_STORAGE.with(|storage| {
+            let id = storage.borrow_mut().insert(EnvData {
+                map: HashMap::new(),
+                parent: None,
+            });
+            Env(id)
+        })
+    }
+
+    /// Create a child environment with the given parent
+    pub fn child(parent: Env) -> Self {
+        ENV_STORAGE.with(|storage| {
+            let id = storage.borrow_mut().insert(EnvData {
+                map: HashMap::new(),
+                parent: Some(parent.0),
+            });
+            Env(id)
+        })
+    }
+
+    /// Get a value from this environment or any parent
+    pub fn get(&self, key: &str) -> Option<Expr> {
+        ENV_STORAGE.with(|storage| {
+            let storage = storage.borrow();
+            let mut current = Some(self.0);
+            while let Some(id) = current {
+                let data = &storage[id];
+                if let Some(v) = data.map.get(key) {
+                    return Some(v.clone());
+                }
+                current = data.parent;
+            }
+            None
+        })
+    }
+
+    /// Insert a value into this environment (not parents)
+    pub fn insert(&self, key: String, val: Expr) {
+        ENV_STORAGE.with(|storage| {
+            storage.borrow_mut()[self.0].map.insert(key, val);
+        })
+    }
+
+    /// Get the root environment by walking up the parent chain
+    pub fn root(&self) -> Env {
+        ENV_STORAGE.with(|storage| {
+            let storage = storage.borrow();
+            let mut current = self.0;
+            loop {
+                let data = &storage[current];
+                match data.parent {
+                    Some(p) => current = p,
+                    None => return Env(current),
+                }
+            }
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct JLisp {
@@ -74,7 +95,7 @@ pub enum Expr {
     Char(u8),
     Builtin(String),
     Lambda {
-        env: Env,
+        env: Env,  // now just Env, not Rc<Env>
         formals: Vec<Expr>,
         body: Box<Expr>,
     },
@@ -252,7 +273,7 @@ fn builtin_join(a: Expr) -> Result<Expr, Error> {
     Ok(Expr::Qexpr(out))
 }
 
-fn builtin_eval(e: Rc<Env>, a: Expr) -> Result<Expr, Error> {
+fn builtin_eval(e: Env, a: Expr) -> Result<Expr, Error> {
     let Expr::Sexpr(args) = a else {
         return Err(Error::IncompatibleType);
     };
@@ -266,7 +287,7 @@ fn builtin_eval(e: Rc<Env>, a: Expr) -> Result<Expr, Error> {
     Expr::Sexpr(ls).eval(e)
 }
 
-fn builtin_var(e: Rc<Env>, func: String, a: Expr) -> Result<Expr, Error> {
+fn builtin_var(e: Env, func: String, a: Expr) -> Result<Expr, Error> {
     let Expr::Sexpr(args) = a else {
         return Err(Error::IncompatibleType);
     };
@@ -293,13 +314,13 @@ fn builtin_var(e: Rc<Env>, func: String, a: Expr) -> Result<Expr, Error> {
         };
         match func.as_str() {
             "def" => {
-                let top = std::iter::successors(Some(&*e), |n| n.parent.as_deref())
-                    .last()
-                    .unwrap();
-                top.map.borrow_mut().insert(sy.clone(), ar.clone());
+                // Insert into root environment
+                let root = e.root();
+                root.insert(sy.clone(), ar.clone());
             }
             "=" => {
-                let _ = e.map.borrow_mut().insert(sy.clone(), ar.clone());
+                // Insert into current environment
+                e.insert(sy.clone(), ar.clone());
             }
             _ => panic!(),
         }
@@ -307,7 +328,7 @@ fn builtin_var(e: Rc<Env>, func: String, a: Expr) -> Result<Expr, Error> {
 
     Ok(Expr::Sexpr(Vec::new()))
 }
-fn builtin_lambda(e: Rc<Env>, a: Expr) -> Result<Expr, Error> {
+fn builtin_lambda(e: Env, a: Expr) -> Result<Expr, Error> {
     let Expr::Sexpr(args) = a else {
         return Err(Error::IncompatibleType);
     };
@@ -330,14 +351,17 @@ fn builtin_lambda(e: Rc<Env>, a: Expr) -> Result<Expr, Error> {
         };
     }
 
+    // Create a new environment for the lambda that captures the current environment
+    let lambda_env = Env::child(e);
+
     Ok(Expr::Lambda {
-        env: Env::new(),
+        env: lambda_env,
         formals: formals.clone(),
         body: Box::new(args[1].clone()),
     })
 }
 
-fn _eval_builtin(env: Rc<Env>, sym: String, a: Expr) -> Result<Expr, Error> {
+fn _eval_builtin(env: Env, sym: String, a: Expr) -> Result<Expr, Error> {
     if matches!(sym.as_str(), "+" | "-" | "*" | "/") {
         return _builtin_op(sym, a);
     }
@@ -356,7 +380,7 @@ fn _eval_builtin(env: Rc<Env>, sym: String, a: Expr) -> Result<Expr, Error> {
     };
 }
 
-fn _eval_lambda(env: Rc<Env>, op: Expr, a: Expr) -> Result<Expr, Error> {
+fn _eval_lambda(_env: Env, op: Expr, a: Expr) -> Result<Expr, Error> {
     let Expr::Lambda {
         env: e,
         mut formals,
@@ -369,6 +393,7 @@ fn _eval_lambda(env: Rc<Env>, op: Expr, a: Expr) -> Result<Expr, Error> {
         return Err(Error::IncompatibleType);
     };
 
+    // Bind arguments to the lambda's environment
     for val in args {
         if formals.is_empty() {
             return Err(Error::WrongAmountOfArgs);
@@ -376,24 +401,24 @@ fn _eval_lambda(env: Rc<Env>, op: Expr, a: Expr) -> Result<Expr, Error> {
         let Expr::Symbol(sym) = formals.remove(0) else {
             return Err(Error::IncompatibleType);
         };
-        env.map.borrow_mut().insert(sym.clone(), val.clone());
+        e.insert(sym.clone(), val.clone());
     }
 
     if formals.is_empty() {
-        // unbound
+        // All args bound, evaluate the body
+        return builtin_eval(e, Expr::Sexpr(vec![*body.clone()]));
+    } else {
+        // Partial application - return partial lambda
         return Ok(Expr::Lambda {
             env: e,
             formals,
             body,
         });
-    } else {
-        // = Some(env);
-        return builtin_eval(e, Expr::Sexpr(vec![*body.clone()]));
     }
 }
 
 impl Expr {
-    pub fn eval(self, env: Rc<Env>) -> Result<Expr, Error> {
+    pub fn eval(self, env: Env) -> Result<Expr, Error> {
         match self {
             Expr::Number(_)
             | Expr::Float(_)
@@ -405,14 +430,14 @@ impl Expr {
                 return Ok(self);
             }
             Expr::Comment(_) => return Ok(Expr::Sexpr(Vec::new())),
-            Expr::Symbol(sym) => match env.map.borrow().get(&sym) {
-                Some(v) => Ok(v.clone()),
+            Expr::Symbol(sym) => match env.get(&sym) {
+                Some(v) => Ok(v),
                 None => Err(Error::UndefinedSymbol(sym)),
             },
             Expr::Sexpr(sexpr) => {
                 let cells = sexpr
                     .iter()
-                    .map(|e| e.clone().eval(env.clone()))
+                    .map(|e| e.clone().eval(env))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 if cells.len() == 0 {
@@ -426,8 +451,8 @@ impl Expr {
                 let children = Expr::Sexpr(s_children.to_vec());
 
                 match &op[0] {
-                    Expr::Builtin(sym) => _eval_builtin(env.clone(), (&sym).to_string(), children),
-                    Expr::Lambda { .. } => _eval_lambda(env.clone(), (&op[0]).clone(), children),
+                    Expr::Builtin(sym) => _eval_builtin(env, (&sym).to_string(), children),
+                    Expr::Lambda { .. } => _eval_lambda(env, (&op[0]).clone(), children),
                     _ => Err(Error::MissingOperator),
                 }
             }
