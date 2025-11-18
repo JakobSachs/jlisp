@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::mem;
 use std::vec::Vec;
 
-use slotmap::{SlotMap};
+use slotmap::SlotMap;
 
 pub type EnvId = slotmap::DefaultKey;
 
@@ -95,7 +96,7 @@ pub enum Expr {
     Char(u8),
     Builtin(String),
     Lambda {
-        env: Env,  // now just Env, not Rc<Env>
+        env: Env, // now just Env, not Rc<Env>
         formals: Vec<Expr>,
         body: Box<Expr>,
     },
@@ -104,6 +105,54 @@ pub enum Expr {
     Comment(String),
     Sexpr(Vec<Expr>),
     Qexpr(Vec<Expr>),
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Number(v) => write!(f, "{}", v),
+            Expr::Float(v) => write!(f, "{}", v),
+            Expr::Symbol(v) => write!(f, "{}", v),
+            Expr::Char(v) => write!(f, "'{}'", v),
+            Expr::String(v) => write!(f, "\"{}\"", v),
+            Expr::Lambda {
+                env: _,
+                formals,
+                body,
+            } => {
+                write!(f, "(\\")?;
+                for (i, form) in formals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", form)?;
+                }
+                write!(f, "{})", body)
+            }
+            Expr::Builtin(_) => write!(f, "<builtin>"),
+            Expr::Sexpr(vals) => {
+                write!(f, "(")?;
+                for (i, v) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", v)?;
+                }
+                write!(f, ")")
+            }
+            Expr::Qexpr(vals) => {
+                write!(f, "{{")?;
+                for (i, v) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", v)?;
+                }
+                write!(f, "}}")
+            }
+            Expr::Comment(_) => write!(f, "()"),
+        }
+    }
 }
 
 #[derive(Debug)]
