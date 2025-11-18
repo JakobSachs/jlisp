@@ -1,0 +1,56 @@
+use std::str::FromStr;
+
+use crate::ast::{JLisp, Expr};
+
+grammar;
+
+
+pub JLisp: JLisp= {
+  <expr:Expr*> => JLisp { exprs: expr }
+}
+
+pub Expr: Expr  =  {
+  <n:Number> => Expr::Number(n),
+  <f:Float> => Expr::Float(f),
+  <s:Symbol> => Expr::Symbol(s),
+  <s:String> => Expr::String(s),
+  <s:Sexpr> => Expr::Sexpr(s),
+  <q:Qexpr> => Expr::Qexpr(q),
+  <c:Comment> => Expr::Comment(c),
+}
+
+Sexpr = {
+  "(" <Expr*> ")"
+}
+
+Qexpr = {
+  "{" <Expr*> "}"
+}
+
+Number: i32 = {
+  r"-?[0-9]+" => i32::from_str(<>).unwrap(),
+}
+
+
+Float: f32 = {
+  r"-?[0-9]+\.[0-9]+" => f32::from_str(<>).unwrap(),
+}
+
+String: String = {
+  r#""[^"\n]*""# => <>.to_owned()
+}
+
+Char: u8 = {
+  <c:r"'([^'\\]\\.)'"> => {
+    let b = &c[1..c.len()-2];
+    c.chars().next().unwrap() as u8
+  }
+}
+
+Symbol: String = {
+  r#"[a-zA-Z\-\+_/\\!<=>\*-]+"# => <>.to_owned()
+}
+
+Comment: String = {
+  r#";.*"# => <>.to_owned()
+}
