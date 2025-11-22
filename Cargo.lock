@@ -245,6 +245,7 @@ dependencies = [
  "rustyline",
  "shellexpand",
  "slotmap",
+ "thiserror",
 ]
 
 [[package]]

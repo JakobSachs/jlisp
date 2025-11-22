@@ -48,7 +48,7 @@ Char: u8 = {
 }
 
 Symbol: String = {
-  r#"[a-zA-Z\-\+_/\\!<=>\*-]+"# => <>.to_owned()
+  r#"[a-zA-Z\-\+_/\\!&<=>\*-]+"# => <>.to_owned()
 }
 
 Comment: String = {

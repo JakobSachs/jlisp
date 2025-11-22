@@ -8,6 +8,7 @@ lalrpop-util = {version="0.22.2",features = ["lexer"]}
 rustyline = "17.0.2"
 shellexpand = "3.1.1"
 slotmap = "1.0.7"
+thiserror = "2.0.17"
 
 [build-dependencies]
 lalrpop = "0.22.2"
