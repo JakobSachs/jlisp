@@ -7,37 +7,8 @@ use std::env;
 use std::fs::{self, OpenOptions};
 use std::io;
 
-use jlisp::ast::{Env, Expr};
+use jlisp::ast::Expr;
 use jlisp::grammar;
-
-fn setup_builtins() -> Env {
-    let env = Env::new();
-
-    // Insert builtin functions
-    env.insert("+".to_string(), Expr::Builtin("+".to_string()));
-    env.insert("-".to_string(), Expr::Builtin("-".to_string()));
-    env.insert("*".to_string(), Expr::Builtin("*".to_string()));
-    env.insert("/".to_string(), Expr::Builtin("/".to_string()));
-
-    env.insert("head".to_string(), Expr::Builtin("head".to_string()));
-    env.insert("last".to_string(), Expr::Builtin("last".to_string()));
-    env.insert("tail".to_string(), Expr::Builtin("tail".to_string()));
-    env.insert("list".to_string(), Expr::Builtin("list".to_string()));
-    env.insert("join".to_string(), Expr::Builtin("join".to_string()));
-    env.insert("eval".to_string(), Expr::Builtin("eval".to_string()));
-    env.insert("range".to_string(), Expr::Builtin("range".to_string()));
-
-    env.insert("=".to_string(), Expr::Builtin("=".to_string()));
-    env.insert("def".to_string(), Expr::Builtin("def".to_string()));
-    env.insert("\\".to_string(), Expr::Builtin("\\".to_string()));
-
-    env.insert("print".to_string(), Expr::Builtin("print".to_string()));
-    env.insert("if".to_string(), Expr::Builtin("if".to_string()));
-    env.insert("load".to_string(), Expr::Builtin("load".to_string()));
-    env.insert("==".to_string(), Expr::Builtin("==".to_string()));
-    env.insert("!=".to_string(), Expr::Builtin("!=".to_string()));
-    env
-}
 
 fn loc_to_line(src: &str, byte: usize) -> String {
     let mut line = 1;
@@ -54,7 +25,7 @@ fn loc_to_line(src: &str, byte: usize) -> String {
 
 fn execute_file(filename: &str) -> io::Result<()> {
     let content = fs::read_to_string(filename)?;
-    let env = setup_builtins();
+    let env = jlisp::builtin::setup_builtins();
     let pe = grammar::JLispParser::new();
 
     // Parse and execute each expression in the file
@@ -108,12 +79,13 @@ fn main() -> Result<()> {
     }
 
     //  start the REPL
-    let env = setup_builtins();
+    let env = jlisp::builtin::setup_builtins();
     let pe = grammar::ExprParser::new();
     let mut rl = DefaultEditor::new()?;
     let repl_hist: String = shellexpand::full("~/.jrepl_hist").unwrap().to_string();
     let _ = OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(&repl_hist)?;
 

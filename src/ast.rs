@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::fs;
 use std::mem;
 use std::vec::Vec;
 
@@ -78,6 +77,12 @@ impl Env {
                 }
             }
         })
+    }
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -199,7 +204,7 @@ impl PartialEq for Expr {
 
 //helpers
 impl Expr {
-    fn as_str(&self) -> String {
+    pub fn as_str(&self) -> String {
         match self {
             Expr::Number(_) => "Number".to_string(),
             Expr::Float(_) => "Float".to_string(),
@@ -214,7 +219,7 @@ impl Expr {
         }
     }
 
-    fn _into_sexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
+    pub fn into_sexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
         if let Expr::Sexpr(v) = self {
             Ok(v)
         } else {
@@ -226,7 +231,7 @@ impl Expr {
             })
         }
     }
-    fn into_number(self, op: &str, line: usize) -> Result<i32, Error> {
+    pub fn into_number(self, op: &str, line: usize) -> Result<i32, Error> {
         if let Expr::Number(i) = self {
             Ok(i)
         } else {
@@ -239,7 +244,7 @@ impl Expr {
         }
     }
 
-    fn into_qexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
+    pub fn into_qexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
         if let Expr::Qexpr(v) = self {
             Ok(v)
         } else {
@@ -251,7 +256,7 @@ impl Expr {
             })
         }
     }
-    fn into_symbol(self, op: &str, line: usize) -> Result<String, Error> {
+    pub fn into_symbol(self, op: &str, line: usize) -> Result<String, Error> {
         if let Expr::Symbol(s) = self {
             Ok(s)
         } else {
@@ -263,7 +268,7 @@ impl Expr {
             })
         }
     }
-    fn into_string(self, op: &str, line: usize) -> Result<String, Error> {
+    pub fn into_string(self, op: &str, line: usize) -> Result<String, Error> {
         if let Expr::String(s) = self {
             Ok(s)
         } else {
@@ -277,7 +282,7 @@ impl Expr {
     }
 }
 // arity helper
-fn expect_arity(func: &str, args: &[Expr], n: usize, line: usize) -> Result<(), Error> {
+pub fn expect_arity(func: &str, args: &[Expr], n: usize, line: usize) -> Result<(), Error> {
     if args.len() == n {
         Ok(())
     } else {
@@ -289,7 +294,7 @@ fn expect_arity(func: &str, args: &[Expr], n: usize, line: usize) -> Result<(), 
         })
     }
 }
-fn expect_nonempty(func: &str, args: &[Expr], line: usize) -> Result<(), Error> {
+pub fn expect_nonempty(func: &str, args: &[Expr], line: usize) -> Result<(), Error> {
     if args.is_empty() {
         return Err(Error::WrongAmountOfArgs {
             func: func.to_string(),
@@ -381,297 +386,6 @@ pub enum Error {
     ParseError { msg: String, line: usize },
 }
 
-fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    //check type of first member is valid
-    if !matches!(args[0], Expr::Number(_) | Expr::Float(_) | Expr::Char(_)) {
-        return Err(Error::IncompatibleType {
-            op: sym,
-            expected: "Number,Float,Char".to_string(),
-            received: args[0].as_str(),
-            line,
-        });
-    }
-
-    // check all for same type (not content)
-    if args.len() > 1
-        && !args.first().map_or(true, |first| {
-            let first_type = mem::discriminant(first);
-            args.iter().all(|x| mem::discriminant(x) == first_type)
-        })
-    {
-        return Err(Error::InconsistentTypes { op: sym, line });
-    }
-
-    if sym == "-" && args.len() == 1 {
-        match args[0] {
-            Expr::Number(n) => return Ok(Expr::Number(-n)),
-            Expr::Float(f) => return Ok(Expr::Float(-f)),
-            _ => {
-                return Err(Error::IncompatibleType {
-                    op: sym,
-                    expected: "Number,Float".to_string(),
-                    received: args[0].as_str(),
-                    line,
-                });
-            }
-        }
-    }
-
-    match args[0] {
-        Expr::Number(start) => {
-            let func: fn(i32, i32) -> i32 = match sym.as_str() {
-                "+" => |a, b| a + b,
-                "-" => |a, b| a - b,
-                "*" => |a, b| a * b,
-                "/" => |a, b| a / b,
-                _ => panic!(),
-            };
-            let mut out = start;
-
-            for v in args.iter().skip(1) {
-                let Expr::Number(v) = v else {
-                    panic!();
-                };
-                // check for valid op
-                if sym.as_str() != "/" || (sym.as_str() == "/" && *v != 0) {
-                    out = func(out, *v);
-                } else {
-                    return Err(Error::DivisionByZero { line });
-                }
-            }
-            Ok(Expr::Number(out))
-        }
-        Expr::Float(start) => {
-            let func: fn(f32, f32) -> f32 = match sym.as_str() {
-                "+" => |a, b| a + b,
-                "-" => |a, b| a - b,
-                "*" => |a, b| a * b,
-                "/" => |a, b| a / b,
-                _ => panic!(),
-            };
-            let mut out = start;
-
-            for v in args.iter().skip(1) {
-                let Expr::Float(v) = v else {
-                    panic!();
-                };
-                // check for valid op
-                if sym.as_str() != "/" || (sym.as_str() == "/" && *v != 0.0) {
-                    out = func(out, *v);
-                } else {
-                    return Err(Error::DivisionByZero { line });
-                }
-            }
-            Ok(Expr::Float(out))
-        }
-        _ => panic!(),
-    }
-}
-fn builtin_comp(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 2, line)?;
-    let a = args[0].clone();
-    let b = args[1].clone();
-
-    let o = match func {
-        "==" => {
-            if a == b {
-                1
-            } else {
-                0
-            }
-        }
-        "!=" => {
-            if a == b {
-                0
-            } else {
-                1
-            }
-        }
-        _ => panic!(),
-    };
-    Ok(Expr::Number(o))
-}
-
-fn builtin_head(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-
-    expect_nonempty(func, &ls, line)?;
-    Ok(Expr::Qexpr(vec![ls.into_iter().next().unwrap()]))
-}
-
-fn builtin_last(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    expect_nonempty(func, &ls, line)?;
-    Ok(ls.into_iter().last().unwrap())
-}
-
-fn builtin_tail(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    expect_nonempty(func, &ls, line)?;
-    Ok(Expr::Qexpr(ls.into_iter().skip(1).collect()))
-}
-
-fn builtin_list(_func: &str, args: Vec<Expr>, _line: usize) -> Result<Expr, Error> {
-    Ok(Expr::Qexpr(args))
-}
-
-fn builtin_join(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    let mut out = Vec::new();
-    for q in args {
-        out.extend(q.into_qexpr(func, line)?);
-    }
-    Ok(Expr::Qexpr(out))
-}
-
-fn builtin_eval(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    Expr::Sexpr(ls).eval(e, line)
-}
-
-fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_nonempty(func, &args, line)?;
-
-    // check symbols
-    let symbols = args[0].clone().into_qexpr(func, line)?;
-    for s in symbols.iter() {
-        s.clone().into_symbol(func, line)?;
-    }
-
-    // match lenght
-    expect_arity(func, &args, symbols.len() + 1, line)?;
-    for (sy, ar) in symbols.iter().zip(args.iter().skip(1)) {
-        let sy = sy.clone().into_symbol(func, line)?;
-        match func {
-            "def" => {
-                // Insert into root environment
-                let root = e.root();
-                root.insert(sy.clone(), ar.clone());
-            }
-            "=" => {
-                // Insert into current environment
-                e.insert(sy.clone(), ar.clone());
-            }
-            _ => panic!(),
-        }
-    }
-
-    Ok(Expr::Sexpr(Vec::new()))
-}
-fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 2, line)?;
-
-    // check arg types
-    let formals = args[0].clone().into_qexpr(func, line)?;
-    let _ = args[1].clone().into_qexpr(func, line)?; // rest 
-
-    for f in formals.iter() {
-        let _ = f.clone().into_symbol(func, line)?;
-    }
-
-    // create a new environment for the lambda that captures the current environment
-    let lambda_env = Env::child(e);
-
-    Ok(Expr::Lambda {
-        env: lambda_env,
-        formals: formals.to_vec(),
-        body: Box::new(args[1].clone()),
-    })
-}
-
-fn builtin_print(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let a = args.into_iter().next().unwrap();
-    println!("{a}");
-    Ok(Expr::Sexpr(Vec::new()))
-}
-
-fn builtin_range(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let a = args.into_iter().next().unwrap();
-    let Expr::Number(rng) = a else {
-        return Err(Error::IncompatibleType {
-            op: func.to_string(),
-            expected: "Number".to_string(),
-            received: a.as_str(),
-            line,
-        });
-    };
-
-    Ok(Expr::Qexpr(
-        (0..rng).map(|n| Expr::Number(n as i32)).collect(),
-    ))
-}
-
-fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 3, line)?;
-    let cond = args[0].clone().into_number(func, line)?;
-    let tbr = Expr::Sexpr(args[1].clone().into_qexpr(func, line)?);
-    let fbr = Expr::Sexpr(args[2].clone().into_qexpr(func, line)?);
-
-    if cond != 0 {
-        tbr.eval(e, line)
-    } else {
-        fbr.eval(e, line)
-    }
-}
-
-fn builtin_load(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let path = args[0].clone().into_string(func, line)?;
-    dbg!(&path);
-
-    let contents = fs::read_to_string(&path).map_err(|err| Error::IoError {
-        msg: format!("Failed to load file '{}': {}", path, err),
-        line,
-    })?;
-
-    let parser = crate::grammar::JLispParser::new();
-    let result = parser.parse(&contents).map_err(|err| Error::ParseError {
-        msg: format!("Failed to parse file '{}': {}", path, err),
-        line,
-    })?;
-
-    let mut last = Expr::Sexpr(vec![]);
-    for expr in result.exprs {
-        last = expr.eval(e, line)?;
-    }
-
-    Ok(last)
-}
-
-fn _eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    if matches!(sym, "+" | "-" | "*" | "/") {
-        return _builtin_op(sym.to_string(), args, line);
-    }
-
-    if matches!(sym, "==" | "!=") {
-        return builtin_comp(sym, args, line);
-    }
-
-    // handle builtin functions
-    match sym {
-        "head" => builtin_head(sym, args, line),
-        "last" => builtin_last(sym, args, line),
-        "tail" => builtin_tail(sym, args, line),
-        "list" => builtin_list(sym, args, line),
-        "join" => builtin_join(sym, args, line),
-        "eval" => builtin_eval(sym, env, args, line),
-        "def" => builtin_var(env, "def", args, line),
-        "=" => builtin_var(env, "=", args, line),
-        "\\" => builtin_lambda(sym, env, args, line),
-        "print" => builtin_print(sym, args, line),
-        "range" => builtin_range(sym, args, line),
-        "if" => builtin_if(sym, env, args, line),
-        "load" => builtin_load(sym, env, args, line),
-        _ => panic!(),
-    }
-}
-
 fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     let func = "\\";
     let Expr::Lambda {
@@ -718,7 +432,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 
     if formals.is_empty() {
         // All args bound, evaluate the body
-        builtin_eval(func, e, vec![*body.clone()], line)
+        crate::builtin::builtin_eval(func, e, vec![*body.clone()], line)
     } else {
         // Partial application - return partial lambda
         Ok(Expr::Lambda {
@@ -761,7 +475,9 @@ impl Expr {
                 let children = s_children.to_vec();
 
                 match &op[0] {
-                    Expr::Builtin(sym) => _eval_builtin(env, sym.as_str(), children, line),
+                    Expr::Builtin(sym) => {
+                        crate::builtin::eval_builtin(env, sym.as_str(), children, line)
+                    }
                     Expr::Lambda { .. } => _eval_lambda(env, op[0].clone(), children, line),
                     _ => Err(Error::MissingOperator { line }),
                 }
