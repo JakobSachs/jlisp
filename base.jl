@@ -88,12 +88,6 @@
       (filter p (tail l))}
 })
 
-(fun {range n} {
-  if (== n 0)
-    { nil }
-    { join (range (- n 1)) (list (- n 1)) }
-})
-
 (fun {foldl f i l} {
   if (== l nil)
     {i}

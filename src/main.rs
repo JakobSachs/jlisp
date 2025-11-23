@@ -7,8 +7,7 @@ use std::env;
 use std::fs::{self, OpenOptions};
 use std::io;
 
-pub mod ast;
-use jlisp::ast::{Env, Expr, JLisp};
+use jlisp::ast::{Env, Expr};
 use jlisp::grammar;
 
 fn setup_builtins() -> Env {
@@ -26,11 +25,17 @@ fn setup_builtins() -> Env {
     env.insert("list".to_string(), Expr::Builtin("list".to_string()));
     env.insert("join".to_string(), Expr::Builtin("join".to_string()));
     env.insert("eval".to_string(), Expr::Builtin("eval".to_string()));
+    env.insert("range".to_string(), Expr::Builtin("range".to_string()));
 
     env.insert("=".to_string(), Expr::Builtin("=".to_string()));
     env.insert("def".to_string(), Expr::Builtin("def".to_string()));
     env.insert("\\".to_string(), Expr::Builtin("\\".to_string()));
 
+    env.insert("print".to_string(), Expr::Builtin("print".to_string()));
+    env.insert("if".to_string(), Expr::Builtin("if".to_string()));
+    env.insert("load".to_string(), Expr::Builtin("load".to_string()));
+    env.insert("==".to_string(), Expr::Builtin("==".to_string()));
+    env.insert("!=".to_string(), Expr::Builtin("!=".to_string()));
     env
 }
 
@@ -57,7 +62,7 @@ fn execute_file(filename: &str) -> io::Result<()> {
         Ok(jl) => {
             for expr in jl.exprs {
                 // in Ok just continue
-                if let Err(e) = expr.eval(env,0) {
+                if let Err(e) = expr.eval(env, 0) {
                     eprintln!("error during eval: {}", e);
                     break;
                 }
@@ -128,7 +133,7 @@ fn main() -> Result<()> {
                     }
                 };
 
-                match expr.eval(env,0) {
+                match expr.eval(env, 0) {
                     Ok(v) => println!("{}", v),
                     Err(e) => println!("ERROR: {}", e),
                 }

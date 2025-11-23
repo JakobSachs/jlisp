@@ -37,7 +37,7 @@ Float: f32 = {
 }
 
 String: String = {
-  r#""[^"\n]*""# => <>.to_owned()
+  r#""[^"\n]*""# => <>[1..<>.len()-1].to_string()
 }
 
 Char: u8 = {
