@@ -2,40 +2,6 @@ use crate::ast::{Env, Error, Expr, expect_arity, expect_nonempty};
 use std::fs;
 use std::mem;
 
-pub fn setup_builtins() -> Env {
-    let env = Env::new();
-
-    // Insert builtin functions
-    env.insert("+".to_string(), Expr::Builtin("+".to_string()));
-    env.insert("-".to_string(), Expr::Builtin("-".to_string()));
-    env.insert("*".to_string(), Expr::Builtin("*".to_string()));
-    env.insert("/".to_string(), Expr::Builtin("/".to_string()));
-
-    env.insert("head".to_string(), Expr::Builtin("head".to_string()));
-    env.insert("last".to_string(), Expr::Builtin("last".to_string()));
-    env.insert("tail".to_string(), Expr::Builtin("tail".to_string()));
-    env.insert("list".to_string(), Expr::Builtin("list".to_string()));
-    env.insert("join".to_string(), Expr::Builtin("join".to_string()));
-    env.insert("eval".to_string(), Expr::Builtin("eval".to_string()));
-    env.insert("range".to_string(), Expr::Builtin("range".to_string()));
-
-    env.insert("=".to_string(), Expr::Builtin("=".to_string()));
-    env.insert("def".to_string(), Expr::Builtin("def".to_string()));
-    env.insert("\\".to_string(), Expr::Builtin("\\".to_string()));
-
-    env.insert("print".to_string(), Expr::Builtin("print".to_string()));
-    env.insert("if".to_string(), Expr::Builtin("if".to_string()));
-    env.insert("load".to_string(), Expr::Builtin("load".to_string()));
-    env.insert("==".to_string(), Expr::Builtin("==".to_string()));
-    env.insert("!=".to_string(), Expr::Builtin("!=".to_string()));
-    env.insert(">".to_string(), Expr::Builtin(">".to_string()));
-    env.insert(">=".to_string(), Expr::Builtin(">=".to_string()));
-    env.insert("<".to_string(), Expr::Builtin("<".to_string()));
-    env.insert("<=".to_string(), Expr::Builtin("<=".to_string()));
-    env.insert("read".to_string(), Expr::Builtin("read".to_string()));
-    env
-}
-
 fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     //check type of first member is valid
     if !matches!(args[0], Expr::Number(_) | Expr::Float(_) | Expr::Char(_)) {
@@ -324,6 +290,12 @@ fn builtin_read(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
     Ok(Expr::String(contents))
 }
 
+fn builtin_chars(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    expect_arity(func, &args, 1, line)?;
+    let s = args[0].clone().into_string(func, line)?;
+    Ok(Expr::Qexpr(s.chars().map(Expr::Char).collect()))
+}
+
 pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     if matches!(sym, "+" | "-" | "*" | "/") {
         return _builtin_op(sym.to_string(), args, line);
@@ -353,6 +325,23 @@ pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result
         "if" => builtin_if(sym, env, args, line),
         "load" => builtin_load(sym, env, args, line),
         "read" => builtin_read(sym, args, line),
+        "chars" => builtin_chars(sym, args, line),
         _ => panic!(),
     }
+}
+
+pub fn setup_builtins() -> Env {
+    let env = Env::new();
+
+    // Define a list of all builtin operator names
+    let builtins = [
+        "+", "-", "*", "/", "head", "last", "tail", "list", "join", "range", "eval", "if", "print",
+        "load", "read", "==", "!=", ">", ">=", "<", "<=", "=", "def", "\\", "chars",
+    ];
+
+    for op in builtins {
+        env.insert(op.to_string(), Expr::Builtin(op.to_string()));
+    }
+
+    env
 }

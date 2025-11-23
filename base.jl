@@ -114,5 +114,3 @@
       {unpack case (join (list x) (tail cs)) }
     }  
 })
-
-(def {otherwise} true)

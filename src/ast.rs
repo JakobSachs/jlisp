@@ -95,7 +95,7 @@ pub struct JLisp {
 pub enum Expr {
     Number(i32),
     Float(f32),
-    Char(u8),
+    Char(char),
     Builtin(String),
     Lambda {
         env: Env,
@@ -312,7 +312,7 @@ impl fmt::Display for Expr {
             Expr::Number(v) => write!(f, "{}", v),
             Expr::Float(v) => write!(f, "{}", v),
             Expr::Symbol(v) => write!(f, "{}", v),
-            Expr::Char(v) => write!(f, "'{}'", v),
+            Expr::Char(v) => write!(f, "'{}'", v.escape_default()),
             Expr::String(v) => write!(f, "\"{}\"", v),
             Expr::Lambda {
                 env: _,
