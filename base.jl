@@ -114,3 +114,7 @@
       {unpack case (join (list x) (tail cs)) }
     }  
 })
+
+; benchmark
+
+; (print (sum (range 10000)))

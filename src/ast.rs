@@ -219,6 +219,7 @@ impl Expr {
         }
     }
 
+    #[inline(always)]
     pub fn into_sexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
         if let Expr::Sexpr(v) = self {
             Ok(v)
@@ -231,6 +232,8 @@ impl Expr {
             })
         }
     }
+
+    #[inline(always)]
     pub fn into_number(self, op: &str, line: usize) -> Result<i32, Error> {
         if let Expr::Number(i) = self {
             Ok(i)
@@ -244,6 +247,7 @@ impl Expr {
         }
     }
 
+    #[inline(always)]
     pub fn into_qexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
         if let Expr::Qexpr(v) = self {
             Ok(v)
@@ -256,6 +260,7 @@ impl Expr {
             })
         }
     }
+    #[inline(always)]
     pub fn into_symbol(self, op: &str, line: usize) -> Result<String, Error> {
         if let Expr::Symbol(s) = self {
             Ok(s)
@@ -268,6 +273,7 @@ impl Expr {
             })
         }
     }
+    #[inline(always)]
     pub fn into_string(self, op: &str, line: usize) -> Result<String, Error> {
         if let Expr::String(s) = self {
             Ok(s)
@@ -282,6 +288,7 @@ impl Expr {
     }
 }
 // arity helper
+#[inline(always)]
 pub fn expect_arity(func: &str, args: &[Expr], n: usize, line: usize) -> Result<(), Error> {
     if args.len() == n {
         Ok(())
@@ -294,6 +301,7 @@ pub fn expect_arity(func: &str, args: &[Expr], n: usize, line: usize) -> Result<
         })
     }
 }
+#[inline(always)]
 pub fn expect_nonempty(func: &str, args: &[Expr], line: usize) -> Result<(), Error> {
     if args.is_empty() {
         return Err(Error::WrongAmountOfArgs {
@@ -386,6 +394,7 @@ pub enum Error {
     ParseError { msg: String, line: usize },
 }
 
+#[inline(always)]
 fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     let func = "\\";
     let Expr::Lambda {
@@ -444,6 +453,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 }
 
 impl Expr {
+    #[inline(always)] // a load bearing inline
     pub fn eval(self, env: Env, line: usize) -> Result<Expr, Error> {
         match self {
             Expr::Number(_)

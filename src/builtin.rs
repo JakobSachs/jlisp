@@ -148,6 +148,8 @@ fn builtin_join(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
     Ok(Expr::Qexpr(out))
 }
 
+
+#[inline(always)]
 pub fn builtin_eval(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 1, line)?;
     let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
@@ -296,6 +298,30 @@ fn builtin_chars(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error
     Ok(Expr::Qexpr(s.chars().map(Expr::Char).collect()))
 }
 
+fn builtin_int(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    expect_arity(func, &args, 1, line)?;
+    match args[0].clone().into_string(func, line)?.parse::<i32>() {
+        Ok(v) => Ok(Expr::Number(v)),
+        Err(_) => Err(Error::ParseError {
+            msg: "couldn't parse int from string".to_string(),
+            line,
+        }),
+    }
+}
+fn builtin_sort(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    expect_arity(func, &args, 1, line)?;
+
+    let mut nums: Vec<i32> = args[0]
+        .clone()
+        .into_qexpr(func, line)?
+        .iter()
+        .map(|e| e.clone().into_number(func, line))
+        .collect::<Result<Vec<_>, Error>>()?; // returns on error
+    nums.sort();
+    Ok(Expr::Qexpr(nums.iter().map(|i| Expr::Number(*i)).collect()))
+}
+
+#[inline(always)]
 pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     if matches!(sym, "+" | "-" | "*" | "/") {
         return _builtin_op(sym.to_string(), args, line);
@@ -326,6 +352,8 @@ pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result
         "load" => builtin_load(sym, env, args, line),
         "read" => builtin_read(sym, args, line),
         "chars" => builtin_chars(sym, args, line),
+        "int" => builtin_int(sym, args, line),
+        "sort" => builtin_sort(sym, args, line),
         _ => panic!(),
     }
 }
@@ -336,7 +364,7 @@ pub fn setup_builtins() -> Env {
     // Define a list of all builtin operator names
     let builtins = [
         "+", "-", "*", "/", "head", "last", "tail", "list", "join", "range", "eval", "if", "print",
-        "load", "read", "==", "!=", ">", ">=", "<", "<=", "=", "def", "\\", "chars",
+        "load", "read", "==", "!=", ">", ">=", "<", "<=", "=", "def", "\\", "chars", "int", "sort",
     ];
 
     for op in builtins {
