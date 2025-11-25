@@ -228,6 +228,7 @@ fn builtin_range(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error
     Ok(Expr::Qexpr((0..rng).map(Expr::Number).collect()))
 }
 
+#[inline(always)]
 fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 3, line)?;
     let cond = args[0].clone().into_number(func, line)?;
