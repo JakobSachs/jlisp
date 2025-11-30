@@ -11,6 +11,23 @@ mod strings;
 use crate::ast::{Error, Expr};
 use crate::env::Env;
 
+/// Macro to generate builtin function cases
+macro_rules! builtin_cases {
+    ($sym:expr, $args:expr, $line:expr, $($name:expr => $handler:expr),*) => {
+        match $sym {
+            $($name => $handler($sym, $args, $line),)*
+            _ => panic!(),
+        }
+    };
+}
+
+/// Macro to generate builtin list
+macro_rules! builtin_list {
+    ($($name:expr),*) => {
+        [$($name),*]
+    };
+}
+
 // Re-export all the builtin functions
 use arithmetic::builtin_op;
 use collections::{
@@ -29,6 +46,7 @@ use strings::{builtin_chars, builtin_int, builtin_str_sub};
 
 #[inline(always)]
 pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    // Handle arithmetic operators
     if matches!(
         sym,
         "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>"
@@ -36,67 +54,72 @@ pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result
         return builtin_op(sym, args, line);
     }
 
+    // Handle comparison operators
     if matches!(sym, "==" | "!=") {
         return builtin_comp(sym, args, line);
     }
 
+    // Handle ordering operators
     if matches!(sym, ">" | "<" | ">=" | "<=") {
         return builtin_ord(sym, args, line);
     }
 
+    // Handle logic operators
     if matches!(sym, "and" | "or" | "not") {
         return builtin_logic(sym, args, line);
     }
 
-    // handle builtin functions
-    match sym {
-        "head" => builtin_head(sym, args, line),
-        "last" => builtin_last(sym, args, line),
-        "tail" => builtin_tail(sym, args, line),
-        "list" => builtin_list(sym, args, line),
-        "join" => builtin_join(sym, args, line),
-        "eval" => builtin_eval(sym, env, args, line),
-        "def" => builtin_var(env, "def", args, line),
-        "=" => builtin_var(env, "=", args, line),
-        "\\" => builtin_lambda(sym, env, args, line),
-        "print" => builtin_print(sym, args, line),
-        "range" => builtin_range(sym, args, line),
-        "if" => builtin_if(sym, env, args, line),
-        "load" => builtin_load(sym, env, args, line),
-        "read" => builtin_read(sym, args, line),
-        "chars" => builtin_chars(sym, args, line),
-        "int" => builtin_int(sym, args, line),
-        "sort" => builtin_sort(sym, args, line),
-        "len" => builtin_len(sym, args, line),
-        "str-sub" => builtin_str_sub(sym, args, line),
-        "split" => builtin_split(sym, args, line),
-        "sqrt" => builtin_sqrt(sym, args, line),
-        "abs" => builtin_abs(sym, args, line),
-        "min" => builtin_min(sym, args, line),
-        "max" => builtin_max(sym, args, line),
-        "floor" => builtin_floor(sym, args, line),
-        "ceil" => builtin_ceil(sym, args, line),
-        "round" => builtin_round(sym, args, line),
-        "sin" => builtin_sin(sym, args, line),
-        "cos" => builtin_cos(sym, args, line),
-        "tan" => builtin_tan(sym, args, line),
-        "log" => builtin_log(sym, args, line),
-        "exp" => builtin_exp(sym, args, line),
-        "truncate" => builtin_truncate(sym, args, line),
-        _ => panic!(),
-    }
+    // Handle builtin functions
+    builtin_cases!(sym, args, line,
+        "head" => builtin_head,
+        "last" => builtin_last,
+        "tail" => builtin_tail,
+        "list" => builtin_list,
+        "join" => builtin_join,
+        "eval" => |s, a, l| builtin_eval(s, env, a, l),
+        "def" => |_s, a, l| builtin_var(env, "def", a, l),
+        "=" => |_s, a, l| builtin_var(env, "=", a, l),
+        "\\" => |s, a, l| builtin_lambda(s, env, a, l),
+        "print" => builtin_print,
+        "range" => builtin_range,
+        "if" => |s, a, l| builtin_if(s, env, a, l),
+        "load" => |s, a, l| builtin_load(s, env, a, l),
+        "read" => builtin_read,
+        "chars" => builtin_chars,
+        "int" => builtin_int,
+        "sort" => builtin_sort,
+        "len" => builtin_len,
+        "str-sub" => builtin_str_sub,
+        "split" => builtin_split,
+        "sqrt" => builtin_sqrt,
+        "abs" => builtin_abs,
+        "min" => builtin_min,
+        "max" => builtin_max,
+        "floor" => builtin_floor,
+        "ceil" => builtin_ceil,
+        "round" => builtin_round,
+        "sin" => builtin_sin,
+        "cos" => builtin_cos,
+        "tan" => builtin_tan,
+        "log" => builtin_log,
+        "exp" => builtin_exp,
+        "truncate" => builtin_truncate
+    )
 }
 
 pub fn setup_builtins() -> Env {
     let env = Env::new();
 
-    // Define a list of all builtin operator names
-    let builtins = [
-        "+", "-", "*", "/", "%", "**", "^", "&", "|", "head", "last", "tail", "list", "join",
-        "range", "eval", "if", "print", "load", "read", "==", "!=", ">", ">=", "<", "<=", "=",
-        "def", "\\", "chars", "int", "sort", "len", "str-sub", "split", "and", "or", "not", "<<",
-        ">>", "sqrt", "abs", "min", "max", "floor", "ceil", "round", "sin", "cos", "tan", "log",
-        "exp", "truncate",
+    // Define all builtin names using the macro
+    let builtins = builtin_list![
+        "+", "-", "*", "/", "%", "**", "^", "&", "|", "<<", ">>",
+        "==", "!=", ">", ">=", "<", "<=",
+        "and", "or", "not",
+        "head", "last", "tail", "list", "join",
+        "range", "eval", "if", "print", "load", "read",
+        "=", "def", "\\", "chars", "int", "sort", "len", "str-sub", "split",
+        "sqrt", "abs", "min", "max", "floor", "ceil", "round",
+        "sin", "cos", "tan", "log", "exp", "truncate"
     ];
 
     for op in builtins {

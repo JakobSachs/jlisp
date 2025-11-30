@@ -611,7 +611,7 @@ fn test_mixed_char_number_error() {
 // Split function tests
 #[test]
 fn test_split_string_char() {
-    let res = eval_str("(split \"hello world\" ' ')").unwrap();
+    let res = eval_str("(split ' ' \"hello world\")").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -623,7 +623,7 @@ fn test_split_string_char() {
 
 #[test]
 fn test_split_string_multiple() {
-    let res = eval_str("(split \"a,b,c\" ',')").unwrap();
+    let res = eval_str("(split ',' \"a,b,c\")").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -636,19 +636,19 @@ fn test_split_string_multiple() {
 
 #[test]
 fn test_split_string_no_delimiter() {
-    let res = eval_str("(split \"hello\" 'x')").unwrap();
+    let res = eval_str("(split 'x' \"hello\")").unwrap();
     assert_eq!(res, Expr::Qexpr(vec![Expr::String("hello".to_string())]));
 }
 
 #[test]
 fn test_split_string_empty() {
-    let res = eval_str("(split \"\" ',')").unwrap();
+    let res = eval_str("(split ',' \"\")").unwrap();
     assert_eq!(res, Expr::Qexpr(vec![Expr::String("".to_string())]));
 }
 
 #[test]
 fn test_split_string_consecutive_delimiters() {
-    let res = eval_str("(split \"a,,b\" ',')").unwrap();
+    let res = eval_str("(split ',' \"a,,b\")").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -661,7 +661,7 @@ fn test_split_string_consecutive_delimiters() {
 
 #[test]
 fn test_split_qexpr_number() {
-    let res = eval_str("(split {1 2 3 4} 2)").unwrap();
+    let res = eval_str("(split 2 {1 2 3 4})").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -673,7 +673,7 @@ fn test_split_qexpr_number() {
 
 #[test]
 fn test_split_qexpr_string() {
-    let res = eval_str("(split {\"a\" \"x\" \"b\" \"x\" \"c\"} \"x\")").unwrap();
+    let res = eval_str("(split \"x\" {\"a\" \"x\" \"b\" \"x\" \"c\"})").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -686,7 +686,7 @@ fn test_split_qexpr_string() {
 
 #[test]
 fn test_split_qexpr_mixed() {
-    let res = eval_str("(split {1 \"x\" 2 \"x\" 3} \"x\")").unwrap();
+    let res = eval_str("(split \"x\" {1 \"x\" 2 \"x\" 3})").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -699,7 +699,7 @@ fn test_split_qexpr_mixed() {
 
 #[test]
 fn test_split_qexpr_no_delimiter() {
-    let res = eval_str("(split {1 2 3} 99)").unwrap();
+    let res = eval_str("(split 99 {1 2 3})").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![Expr::Qexpr(vec![
@@ -712,13 +712,13 @@ fn test_split_qexpr_no_delimiter() {
 
 #[test]
 fn test_split_qexpr_empty() {
-    let res = eval_str("(split {} 1)").unwrap();
+    let res = eval_str("(split 1 {})").unwrap();
     assert_eq!(res, Expr::Qexpr(vec![Expr::Qexpr(vec![])]));
 }
 
 #[test]
 fn test_split_qexpr_consecutive_delimiters() {
-    let res = eval_str("(split {1 2 2 3} 2)").unwrap();
+    let res = eval_str("(split 2 {1 2 2 3})").unwrap();
     assert_eq!(
         res,
         Expr::Qexpr(vec![
@@ -740,7 +740,7 @@ fn test_split_wrong_arity() {
 
 #[test]
 fn test_split_wrong_first_type() {
-    let res = eval_str("(split 123 ' ')");
+    let res = eval_str("(split ' ' 123)");
     assert!(res.is_err());
     let err = res.unwrap_err();
     let err = err.downcast_ref::<Error>().unwrap();
@@ -749,7 +749,7 @@ fn test_split_wrong_first_type() {
 
 #[test]
 fn test_split_wrong_second_type() {
-    let res = eval_str("(split \"hello\" \"not a char\")");
+    let res = eval_str("(split \"not a char\" \"hello\")");
     assert!(res.is_err());
     let err = res.unwrap_err();
     let err = err.downcast_ref::<Error>().unwrap();

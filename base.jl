@@ -26,11 +26,6 @@
   ((\{_} b) () )
 })
 
-; logical ops
-(fun {not x} {- 1 x})
-(fun {or x y} {+ x y})
-(fun {and x y} {* x y})
-
 ; misc
 (fun {flip f a b} {f b a})
 (fun {ghost &xs} {eval xs}) 
@@ -116,4 +111,3 @@
 })
 
 
-(print (sum (range 5000)))

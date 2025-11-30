@@ -4,6 +4,18 @@ use crate::ast::{JLisp, Expr};
 
 grammar;
 
+match {
+    r#"'\\n'"#,
+    r#"'\\t'"#,
+    r#"'\\r'"#,
+    r#"'\\\\"#,
+    r#"'\''"#,
+    r#"'\"'"#,
+} else {
+    r#"'[^\\'\n]'"#,
+    _
+}
+
 
 pub JLisp: JLisp= {
   <expr:Expr*> => JLisp { exprs: expr }
@@ -42,7 +54,13 @@ String: String = {
 }
 
 Char: char = {
-    r#"'[^'\n]'"# => {
+    r#"'\\n'"# => '\n',
+    r#"'\\t'"# => '\t',
+    r#"'\\r'"# => '\r',
+    r#"'\\\\"# => '\\',
+    r#"'\''"# => '\'',
+    r#"'\"'"# => '"',
+    r#"'[^\\'\n]'"# => {
         let s = <>;
         // Extract the character at index 1 (skipping the opening quote)
         s.chars().nth(1).unwrap() 

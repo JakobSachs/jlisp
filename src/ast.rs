@@ -303,6 +303,9 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
         panic!();
     };
 
+    // Create a child environment for the lambda execution
+    let lambda_env = Env::child(e);
+    
     // Bind arguments to the lambda's environment
     let mut i = 0;
     while i < args.len() {
@@ -317,11 +320,11 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 
             // take rest of args and quit loop
             let rest_args: Vec<_> = args.iter().skip(i + 1).cloned().collect();
-            e.insert(rest_sym.clone(), Expr::Qexpr(rest_args));
+            lambda_env.insert(rest_sym.clone(), Expr::Qexpr(rest_args));
             break;
         }
 
-        e.insert(sym.clone(), val.clone());
+        lambda_env.insert(sym.clone(), val.clone());
         i += 1;
     }
 
@@ -331,7 +334,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
         if list_sym == "&" {
             expect_arity(func, &formals, 2, line)?;
             let bind_sym = formals.get(1).unwrap().clone().into_symbol(func, line)?;
-            e.insert(bind_sym.clone(), Expr::Qexpr(Vec::new()));
+            lambda_env.insert(bind_sym.clone(), Expr::Qexpr(Vec::new()));
             formals.clear();
         }
     }
@@ -346,13 +349,13 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
                     Ok(Expr::Sexpr(Vec::new()))
                 } else if !inner.is_empty() && matches!(inner[0], Expr::Symbol(_)) {
                     // Starts with symbol - treat as S-expression
-                    Expr::Sexpr(inner.clone()).eval(e, line)
+                    Expr::Sexpr(inner.clone()).eval(lambda_env, line)
                 } else {
                     // Multiple expressions not starting with symbol - use sequential evaluation
-                    crate::builtin::builtin_eval(func, e, vec![*body.clone()], line)
+                    crate::builtin::builtin_eval(func, lambda_env, vec![*body.clone()], line)
                 }
             }
-            _ => body.eval(e, line),
+            _ => body.eval(lambda_env, line),
         }
     } else {
         // Partial application - return partial lambda

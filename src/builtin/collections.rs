@@ -76,8 +76,8 @@ pub fn builtin_len(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Err
 
 pub fn builtin_split(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 2, line)?;
-    let input = args[0].clone();
-    let delimiter = args[1].clone();
+    let delimiter = args[0].clone();
+    let input = args[1].clone();
 
     match input {
         Expr::String(s) => {
