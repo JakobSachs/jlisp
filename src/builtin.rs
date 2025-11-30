@@ -3,6 +3,38 @@ use crate::env::Env;
 use std::fs;
 use std::mem;
 
+macro_rules! single_qexpr_op {
+    ($args:expr, $func:expr, $line:expr, $op:expr) => {
+        {
+            expect_arity($func, &$args, 1, $line)?;
+            let ls = $args.into_iter().next().unwrap().into_qexpr($func, $line)?;
+            expect_nonempty($func, &ls, $line)?;
+            $op(ls)
+        }
+    };
+}
+
+macro_rules! two_number_op {
+    ($args:expr, $func:expr, $line:expr, $op:expr) => {
+        {
+            expect_arity($func, &$args, 2, $line)?;
+            let l = $args[0].clone().into_number($func, $line)?;
+            let r = $args[1].clone().into_number($func, $line)?;
+            Ok(Expr::Number($op(l, r) as i32))
+        }
+    };
+}
+
+macro_rules! single_string_op {
+    ($args:expr, $func:expr, $line:expr, $op:expr) => {
+        {
+            expect_arity($func, &$args, 1, $line)?;
+            let s = $args.into_iter().next().unwrap().into_string($func, $line)?;
+            $op(s, $func, $line)
+        }
+    };
+}
+
 fn _builtin_op(sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     //check type of first member is valid
     if !matches!(args[0], Expr::Number(_) | Expr::Float(_) | Expr::Char(_)) {
@@ -118,26 +150,15 @@ fn builtin_comp(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr, Er
 }
 
 fn builtin_head(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-
-    expect_nonempty(func, &ls, line)?;
-    Ok(Expr::Qexpr(vec![ls.into_iter().next().unwrap()]))
+    single_qexpr_op!(args, func, line, |ls: Vec<Expr>| Ok(Expr::Qexpr(vec![ls.into_iter().next().unwrap()])))
 }
 
 fn builtin_last(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    expect_nonempty(func, &ls, line)?;
-    Ok(ls.into_iter().last().unwrap())
+    single_qexpr_op!(args, func, line, |ls: Vec<Expr>| Ok(ls.into_iter().last().unwrap()))
 }
 
 fn builtin_tail(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    expect_nonempty(func, &ls, line)?;
-    Ok(Expr::Qexpr(ls.into_iter().skip(1).collect()))
+    single_qexpr_op!(args, func, line, |ls: Vec<Expr>| Ok(Expr::Qexpr(ls.into_iter().skip(1).collect())))
 }
 
 fn builtin_list(_func: &str, args: Vec<Expr>, _line: usize) -> Result<Expr, Error> {
@@ -312,54 +333,47 @@ fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, 
 }
 
 fn builtin_ord(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 2, line)?;
-    let l = args[0].clone().into_number(func, line)?;
-    let r = args[1].clone().into_number(func, line)?;
-
-    let o = match func {
-        ">" => l > r,
-        "<" => l < r,
-        ">=" => l >= r,
-        "<=" => l <= r,
-        _ => panic!(),
-    };
-
-    Ok(Expr::Number(o as i32))
+    two_number_op!(args, func, line, |l, r| {
+        match func {
+            ">" => l > r,
+            "<" => l < r,
+            ">=" => l >= r,
+            "<=" => l <= r,
+            _ => panic!(),
+        }
+    })
 }
 
 fn builtin_load(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let path = args[0].clone().into_string(func, line)?;
+    single_string_op!(args, func, line, |path: String, _func: &str, line: usize| {
+        let contents = fs::read_to_string(&path).map_err(|err| Error::IoError {
+            msg: format!("Failed to load file '{}': {}", path, err),
+            line,
+        })?;
 
-    let contents = fs::read_to_string(&path).map_err(|err| Error::IoError {
-        msg: format!("Failed to load file '{}': {}", path, err),
-        line,
-    })?;
+        let parser = crate::grammar::JLispParser::new();
+        let result = parser.parse(&contents).map_err(|err| Error::ParseError {
+            msg: format!("Failed to parse file '{}': {}", path, err),
+            line,
+        })?;
 
-    let parser = crate::grammar::JLispParser::new();
-    let result = parser.parse(&contents).map_err(|err| Error::ParseError {
-        msg: format!("Failed to parse file '{}': {}", path, err),
-        line,
-    })?;
+        let mut last = Expr::Sexpr(vec![]);
+        for expr in result.exprs {
+            last = expr.eval(e, line)?;
+        }
 
-    let mut last = Expr::Sexpr(vec![]);
-    for expr in result.exprs {
-        last = expr.eval(e, line)?;
-    }
-
-    Ok(last)
+        Ok(last)
+    })
 }
 
 fn builtin_read(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    expect_arity(func, &args, 1, line)?;
-    let path = args[0].clone().into_string(func, line)?;
-
-    let contents = fs::read_to_string(&path).map_err(|err| Error::IoError {
-        msg: format!("Failed to load file '{}': {}", path, err),
-        line,
-    })?;
-
-    Ok(Expr::String(contents))
+    single_string_op!(args, func, line, |path: String, _func: &str, line: usize| {
+        let contents = fs::read_to_string(&path).map_err(|err| Error::IoError {
+            msg: format!("Failed to load file '{}': {}", path, err),
+            line,
+        })?;
+        Ok(Expr::String(contents))
+    })
 }
 
 fn builtin_chars(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {

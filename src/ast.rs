@@ -121,6 +121,21 @@ impl PartialEq for Expr {
     }
 }
 
+macro_rules! into_type {
+    ($self:expr, $variant:ident, $expected:expr, $op:expr, $line:expr) => {
+        if let Expr::$variant(v) = $self {
+            Ok(v)
+        } else {
+            Err(Error::IncompatibleType {
+                op: $op.to_string(),
+                expected: $expected.to_string(),
+                received: $self.as_str(),
+                line: $line,
+            })
+        }
+    };
+}
+
 //helpers
 impl Expr {
     pub fn as_str(&self) -> String {
@@ -140,70 +155,27 @@ impl Expr {
 
     #[inline(always)]
     pub fn into_sexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
-        if let Expr::Sexpr(v) = self {
-            Ok(v)
-        } else {
-            Err(Error::IncompatibleType {
-                op: op.to_string(),
-                expected: "Sexpr".to_string(),
-                received: self.as_str(),
-                line,
-            })
-        }
+        into_type!(self, Sexpr, "Sexpr", op, line)
     }
 
     #[inline(always)]
     pub fn into_number(self, op: &str, line: usize) -> Result<i32, Error> {
-        if let Expr::Number(i) = self {
-            Ok(i)
-        } else {
-            Err(Error::IncompatibleType {
-                op: op.to_string(),
-                expected: "Number".to_string(),
-                received: self.as_str(),
-                line,
-            })
-        }
+        into_type!(self, Number, "Number", op, line)
     }
 
     #[inline(always)]
     pub fn into_qexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
-        if let Expr::Qexpr(v) = self {
-            Ok(v)
-        } else {
-            Err(Error::IncompatibleType {
-                op: op.to_string(),
-                expected: "Qexpr".to_string(),
-                received: self.as_str(),
-                line,
-            })
-        }
+        into_type!(self, Qexpr, "Qexpr", op, line)
     }
+
     #[inline(always)]
     pub fn into_symbol(self, op: &str, line: usize) -> Result<String, Error> {
-        if let Expr::Symbol(s) = self {
-            Ok(s)
-        } else {
-            Err(Error::IncompatibleType {
-                op: op.to_string(),
-                expected: "Symbol".to_string(),
-                received: self.as_str(),
-                line,
-            })
-        }
+        into_type!(self, Symbol, "Symbol", op, line)
     }
+
     #[inline(always)]
     pub fn into_string(self, op: &str, line: usize) -> Result<String, Error> {
-        if let Expr::String(s) = self {
-            Ok(s)
-        } else {
-            Err(Error::IncompatibleType {
-                op: op.to_string(),
-                expected: "String".to_string(),
-                received: self.as_str(),
-                line,
-            })
-        }
+        into_type!(self, String, "String", op, line)
     }
 }
 // arity helper
