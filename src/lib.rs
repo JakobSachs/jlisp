@@ -5,3 +5,4 @@ pub mod ast;
 lalrpop_mod!(pub grammar);
 
 pub mod builtin;
+pub mod env;

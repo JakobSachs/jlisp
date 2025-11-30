@@ -1,4 +1,5 @@
-use crate::ast::{Env, Error, Expr, expect_arity, expect_nonempty};
+use crate::ast::{Error, Expr, expect_arity, expect_nonempty};
+use crate::env::Env;
 use std::fs;
 use std::mem;
 
@@ -56,8 +57,8 @@ fn _builtin_op(sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
                 let Expr::Number(v) = v else {
                     panic!();
                 };
-                // check for valid op
-                if sym != "/" || (sym == "/" && *v != 0) {
+                // check for valid op/not-zero
+                if !(sym == "/" && *v == 0) {
                     out = func(out, *v);
                 } else {
                     return Err(Error::DivisionByZero { line });
@@ -80,7 +81,7 @@ fn _builtin_op(sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
                     panic!();
                 };
                 // check for valid op
-                if sym != "/" || (sym == "/" && *v != 0.0) {
+                if !(sym == "/" && *v == 0.0) {
                     out = func(out, *v);
                 } else {
                     return Err(Error::DivisionByZero { line });
@@ -206,12 +207,12 @@ fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
     expect_arity(func, &args, 2, line)?;
 
     // check arg types
-    let Expr::Qexpr(formals) = args.get(0).unwrap() else {
+    let Expr::Qexpr(formals) = args.first().unwrap() else {
         return Err(Error::IncompatibleType {
             op: func.to_string(),
             expected: "Qexpr".to_string(),
             received: args[0].as_str(),
-            line: line,
+            line,
         });
     };
 
@@ -222,7 +223,7 @@ fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
                 op: func.to_string(),
                 expected: "Symbol".to_string(),
                 received: f.as_str(),
-                line: line,
+                line,
             });
         };
     }
@@ -233,7 +234,7 @@ fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
             op: func.to_string(),
             expected: "Qexpr".to_string(),
             received: args[1].as_str(),
-            line: line,
+            line,
         });
     };
 
@@ -363,7 +364,7 @@ fn builtin_sort(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr, Er
                 op: func.to_string(),
                 expected: "Number".to_string(),
                 received: e.as_str(),
-                line: line,
+                line,
             }),
         })
         .collect::<Result<Vec<_>, Error>>()?; // returns on error
