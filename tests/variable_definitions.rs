@@ -5,26 +5,30 @@ use common::eval_str;
 // Test basic def functionality - should define in root environment
 #[test]
 fn test_def_basic() {
+    // Reset environment for clean test
+    common::reset_persistent_env();
     // First define the variable
-    eval_str("(def {x} 42)").unwrap();
+    common::eval_str_persistent("(def {x} 42)").unwrap();
     // Then access it
-    let res = eval_str("x").unwrap();
+    let res = common::eval_str_persistent("x").unwrap();
     assert_eq!(res, Expr::Number(42));
 }
 
 // Test def with multiple variables
 #[test]
 fn test_def_multiple() {
-    eval_str("(def {a b c} 1 2 3)").unwrap();
-    let res = eval_str("(+ a b c)").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {a b c} 1 2 3)").unwrap();
+    let res = common::eval_str_persistent("(+ a b c)").unwrap();
     assert_eq!(res, Expr::Number(6));
 }
 
 // Test def with expression evaluation
 #[test]
 fn test_def_with_expression() {
-    eval_str("(def {x} (+ 10 20))").unwrap();
-    let res = eval_str("x").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {x} (+ 10 20))").unwrap();
+    let res = common::eval_str_persistent("x").unwrap();
     assert_eq!(res, Expr::Number(30));
 }
 
@@ -52,24 +56,29 @@ fn test_local_assignment_isolation() {
 // Test def inside lambda should create global variables
 #[test]
 fn test_def_inside_lambda() {
-    eval_str("((\\ {} {(def {global_var} 999)}) )").unwrap();
-    let res = eval_str("global_var").unwrap();
+    common::reset_persistent_env();
+    // Use a dummy argument to ensure lambda gets called
+    common::eval_str_persistent("((\\ {dummy} {(def {global_var} 999)}) 0)").unwrap();
+    let res = common::eval_str_persistent("global_var").unwrap();
     assert_eq!(res, Expr::Number(999));
 }
 
 // Test variable shadowing - local should shadow global
 #[test]
 fn test_variable_shadowing() {
-    eval_str("(def {x} 100)").unwrap();
-    let res = eval_str("((\\ {x} x) 200)").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {x} 100)").unwrap();
+    let res = common::eval_str_persistent("((\\ {x} {x}) 200)").unwrap();
     assert_eq!(res, Expr::Number(200));
 }
 
 // Test nested environment variable lookup
 #[test]
 fn test_nested_environment_lookup() {
-    eval_str("(def {outer} 10)").unwrap();
-    let res = eval_str("((\\ {} {(= {inner} 20) (+ outer inner)}) )").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {outer} 10)").unwrap();
+    let res =
+        common::eval_str_persistent("((\\ {dummy} {(= {inner} 20) (+ outer inner)}) 0)").unwrap();
     assert_eq!(res, Expr::Number(30));
 }
 
@@ -116,7 +125,7 @@ fn test_def_mismatched_count() {
 // Test local assignment with non-symbol should error
 #[test]
 fn test_local_assignment_non_symbol() {
-    let res = eval_str("((\\ {} {(= {456} 10)}) )");
+    let res = eval_str("((\\ {dummy} {(= {456} 10)}) 0)");
     assert!(res.is_err());
     let err = res.unwrap_err();
     let err = err.downcast_ref::<Error>().unwrap();
@@ -126,52 +135,58 @@ fn test_local_assignment_non_symbol() {
 // Test variable redefinition with def
 #[test]
 fn test_variable_redefinition() {
-    eval_str("(def {x} 1)").unwrap();
-    eval_str("(def {x} 2)").unwrap();
-    let res = eval_str("x").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {x} 1)").unwrap();
+    common::eval_str_persistent("(def {x} 2)").unwrap();
+    let res = common::eval_str_persistent("x").unwrap();
     assert_eq!(res, Expr::Number(2));
 }
 
 // Test complex nested scoping
 #[test]
 fn test_complex_scoping() {
-    eval_str("(def {a} 1)").unwrap();
-    let res = eval_str("((\\ {b} {(= {c} 3) (+ a b c)}) 2)").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {a} 1)").unwrap();
+    let res = common::eval_str_persistent("((\\ {b} {(= {c} 3) (+ a b c)}) 2)").unwrap();
     assert_eq!(res, Expr::Number(6));
 }
 
 // Test lambda closure with variable capture
 #[test]
 fn test_lambda_closure_variables() {
-    eval_str("(def {x} 10)").unwrap();
-    let res = eval_str("((\\ {f} {(f 5)}) (\\ {y} {+ x y}))").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {x} 10)").unwrap();
+    let res = common::eval_str_persistent("((\\ {f} {(f 5)}) (\\ {y} {+ x y}))").unwrap();
     assert_eq!(res, Expr::Number(15));
 }
 
 // Test that local assignment doesn't leak to parent
 #[test]
 fn test_local_assignment_no_leak() {
-    eval_str("(def {x} 1)").unwrap();
-    eval_str("((\\ {} {(= {x} 2)}) )").unwrap();
-    let res = eval_str("x").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {x} 1)").unwrap();
+    common::eval_str_persistent("((\\ {} {(= {x} 2)}) )").unwrap();
+    let res = common::eval_str_persistent("x").unwrap();
     assert_eq!(res, Expr::Number(1)); // Should still be 1, not 2
 }
 
 // Test def with lambda value
 #[test]
 fn test_def_lambda_value() {
-    eval_str("(def {my-func} (\\ {x} {+ x 1}))").unwrap();
-    let res = eval_str("(my-func 5)").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {my-func} (\\ {x} {+ x 1}))").unwrap();
+    let res = common::eval_str_persistent("(my-func 5)").unwrap();
     assert_eq!(res, Expr::Number(6));
 }
 
 // Test multiple statements with variable dependencies
 #[test]
 fn test_variable_dependencies() {
-    eval_str("(def {a} 5)").unwrap();
-    eval_str("(def {b} (* a 2))").unwrap();
-    eval_str("(def {c} (+ b 3))").unwrap();
-    let res = eval_str("c").unwrap();
+    common::reset_persistent_env();
+    common::eval_str_persistent("(def {a} 5)").unwrap();
+    common::eval_str_persistent("(def {b} (* a 2))").unwrap();
+    common::eval_str_persistent("(def {c} (+ b 3))").unwrap();
+    let res = common::eval_str_persistent("c").unwrap();
     assert_eq!(res, Expr::Number(13)); // a=5, b=10, c=13
 }
 
@@ -179,11 +194,12 @@ fn test_variable_dependencies() {
 #[test]
 fn test_direct_environment_behavior() {
     // This test directly checks if def is working at all
-    let res = eval_str("(def {test_var} 123)");
+    common::reset_persistent_env();
+    let res = common::eval_str_persistent("(def {test_var} 123)");
     assert!(res.is_ok());
-    
+
     // If def worked, this should succeed. If it fails, def is broken.
-    let res = eval_str("test_var");
+    let res = common::eval_str_persistent("test_var");
     if let Err(ref e) = res {
         println!("DEF BUG: Variable not found after def: {:?}", e);
     }

@@ -155,7 +155,27 @@ fn builtin_join(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
 #[inline(always)]
 pub fn builtin_eval(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 1, line)?;
-    Expr::Sexpr(args.into_iter().next().unwrap().into_qexpr(func, line)?).eval(e, line)
+    let qexpr = args.into_iter().next().unwrap().into_qexpr(func, line)?;
+
+    if qexpr.is_empty() {
+        // Empty expression
+        Ok(Expr::Sexpr(Vec::new()))
+    } else {
+        // Always evaluate expressions sequentially, return last result
+        let mut result = Expr::Sexpr(Vec::new());
+        for expr in qexpr {
+            // For each expression, if it's a Qexpr, convert to Sexpr for evaluation
+            match expr {
+                Expr::Qexpr(inner) => {
+                    result = Expr::Sexpr(inner).eval(e, line)?;
+                }
+                _ => {
+                    result = expr.eval(e, line)?;
+                }
+            }
+        }
+        Ok(result)
+    }
 }
 
 fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
@@ -178,7 +198,14 @@ fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<Expr,
 
     // match length
     expect_arity(func, &args, symbols.len() + 1, line)?;
-    for (sy, ar) in symbols.into_iter().zip(args.into_iter().skip(1)) {
+
+    // Evaluate the values before storing them
+    let mut values = Vec::new();
+    for ar in args.into_iter().skip(1) {
+        values.push(ar.eval(e, line)?);
+    }
+
+    for (sy, ar) in symbols.into_iter().zip(values.into_iter()) {
         let Expr::Symbol(sy) = sy else {
             return Err(Error::IncompatibleType {
                 op: func.to_string(),

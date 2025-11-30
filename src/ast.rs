@@ -361,7 +361,20 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
     if formals.is_empty() {
         // All args bound, evaluate the body
         // TODO: I think we can do some garbage collectoin of the Envs right here
-        crate::builtin::builtin_eval(func, e, vec![*body.clone()], line)
+        match &*body {
+            Expr::Qexpr(inner) => {
+                if inner.is_empty() {
+                    Ok(Expr::Sexpr(Vec::new()))
+                } else if !inner.is_empty() && matches!(inner[0], Expr::Symbol(_)) {
+                    // Starts with symbol - treat as S-expression
+                    Expr::Sexpr(inner.clone()).eval(e, line)
+                } else {
+                    // Multiple expressions not starting with symbol - use sequential evaluation
+                    crate::builtin::builtin_eval(func, e, vec![*body.clone()], line)
+                }
+            }
+            _ => body.eval(e, line),
+        }
     } else {
         // Partial application - return partial lambda
         Ok(Expr::Lambda {
