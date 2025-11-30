@@ -75,12 +75,6 @@ impl Env {
             }
         })
     }
-
-    pub fn remove(&self, key: &str) {
-        ENV_STORAGE.with(|storage| {
-            storage.borrow_mut()[self.0].map.remove(key);
-        })
-    }
 }
 
 impl Default for Env {

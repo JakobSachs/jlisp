@@ -16,12 +16,36 @@ fn test_add_floats() {
 }
 
 #[test]
-fn test_add_type_mismatch() {
-    let res = eval_str("(+ 1 2.5)");
-    assert!(res.is_err());
-    let err = res.unwrap_err();
-    let err = err.downcast_ref::<Error>().unwrap();
-    assert!(matches!(err, Error::InconsistentTypes { .. }));
+fn test_add_mixed_types() {
+    // Mixed type operations should result in float
+    let res = eval_str("(+ 1 2.5)").unwrap();
+    assert_eq!(res, Expr::Float(3.5));
+    let res = eval_str("(+ 1.5 2)").unwrap();
+    assert_eq!(res, Expr::Float(3.5));
+}
+
+#[test]
+fn test_subtract_mixed_types() {
+    let res = eval_str("(- 5 2.5)").unwrap();
+    assert_eq!(res, Expr::Float(2.5));
+    let res = eval_str("(- 5.5 2)").unwrap();
+    assert_eq!(res, Expr::Float(3.5));
+}
+
+#[test]
+fn test_multiply_mixed_types() {
+    let res = eval_str("(* 2 2.5)").unwrap();
+    assert_eq!(res, Expr::Float(5.0));
+    let res = eval_str("(* 2.5 2)").unwrap();
+    assert_eq!(res, Expr::Float(5.0));
+}
+
+#[test]
+fn test_divide_mixed_types() {
+    let res = eval_str("(/ 5 2.0)").unwrap();
+    assert_eq!(res, Expr::Float(2.5));
+    let res = eval_str("(/ 5.0 2)").unwrap();
+    assert_eq!(res, Expr::Float(2.5));
 }
 
 #[test]
@@ -423,6 +447,156 @@ fn test_wrong_arity_if() {
     assert!(matches!(err, Error::WrongAmountOfArgs { .. }));
 }
 
+// Enhanced join tests - now handles strings
+#[test]
+fn test_join_strings() {
+    let res = eval_str("(join \"hello\" \" \" \"world\")").unwrap();
+    assert_eq!(res, Expr::String("hello world".to_string()));
+}
+
+#[test]
+fn test_join_strings_single() {
+    let res = eval_str("(join \"single\")").unwrap();
+    assert_eq!(res, Expr::String("single".to_string()));
+}
+
+#[test]
+fn test_join_strings_empty() {
+    let res = eval_str("(join \"\" \"test\")").unwrap();
+    assert_eq!(res, Expr::String("test".to_string()));
+}
+
+#[test]
+fn test_join_mixed_types_error() {
+    let res = eval_str("(join \"hello\" {1 2})");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::InconsistentTypes { .. }));
+}
+
+// General length function tests
+#[test]
+fn test_len_string() {
+    let res = eval_str("(len \"hello\")").unwrap();
+    assert_eq!(res, Expr::Number(5));
+}
+
+#[test]
+fn test_len_string_empty() {
+    let res = eval_str("(len \"\")").unwrap();
+    assert_eq!(res, Expr::Number(0));
+}
+
+#[test]
+fn test_len_string_unicode() {
+    let res = eval_str("(len \"naïve\")").unwrap();
+    assert_eq!(res, Expr::Number(5));
+}
+
+#[test]
+fn test_len_qexpr() {
+    let res = eval_str("(len {1 2 3 4 5})").unwrap();
+    assert_eq!(res, Expr::Number(5));
+}
+
+#[test]
+fn test_len_qexpr_empty() {
+    let res = eval_str("(len {})").unwrap();
+    assert_eq!(res, Expr::Number(0));
+}
+
+#[test]
+fn test_len_qexpr_mixed() {
+    let res = eval_str("(len {1 \"hello\" {2 3}})").unwrap();
+    assert_eq!(res, Expr::Number(3));
+}
+
+#[test]
+fn test_len_sexpr() {
+    let res = eval_str("(len (list 1 2 3))").unwrap();
+    assert_eq!(res, Expr::Number(3));
+}
+
+#[test]
+fn test_len_wrong_type() {
+    let res = eval_str("(len 123)");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::IncompatibleType { .. }));
+}
+
+#[test]
+fn test_len_wrong_arity() {
+    let res = eval_str("(len \"hello\" \"extra\")");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::WrongAmountOfArgs { .. }));
+}
+
+// String substring tests
+#[test]
+fn test_str_substring_normal() {
+    let res = eval_str("(str-sub \"hello world\" 6 11)").unwrap();
+    assert_eq!(res, Expr::String("world".to_string()));
+}
+
+#[test]
+fn test_str_substring_start() {
+    let res = eval_str("(str-sub \"hello\" 0 2)").unwrap();
+    assert_eq!(res, Expr::String("he".to_string()));
+}
+
+#[test]
+fn test_str_substring_end() {
+    let res = eval_str("(str-sub \"hello\" 3 5)").unwrap();
+    assert_eq!(res, Expr::String("lo".to_string()));
+}
+
+#[test]
+fn test_str_substring_empty() {
+    let res = eval_str("(str-sub \"hello\" 2 2)").unwrap();
+    assert_eq!(res, Expr::String("".to_string()));
+}
+
+#[test]
+fn test_str_substring_out_of_bounds() {
+    let res = eval_str("(str-sub \"hello\" 3 10)");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::ParseError { .. }));
+}
+
+#[test]
+fn test_str_substring_invalid_range() {
+    let res = eval_str("(str-sub \"hello\" 4 2)");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::ParseError { .. }));
+}
+
+#[test]
+fn test_str_substring_wrong_type() {
+    let res = eval_str("(str-sub \"hello\" \"start\" 5)");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::IncompatibleType { .. }));
+}
+
+#[test]
+fn test_str_substring_wrong_arity() {
+    let res = eval_str("(str-sub \"hello\" 2)");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::WrongAmountOfArgs { .. }));
+}
+
 // Char arithmetic tests removed - char arithmetic is not implemented and causes panics
 
 #[test]
@@ -432,4 +606,152 @@ fn test_mixed_char_number_error() {
     let err = res.unwrap_err();
     let err = err.downcast_ref::<Error>().unwrap();
     assert!(matches!(err, Error::InconsistentTypes { .. }));
+}
+
+// Split function tests
+#[test]
+fn test_split_string_char() {
+    let res = eval_str("(split \"hello world\" ' ')").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::String("hello".to_string()),
+            Expr::String("world".to_string())
+        ])
+    );
+}
+
+#[test]
+fn test_split_string_multiple() {
+    let res = eval_str("(split \"a,b,c\" ',')").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::String("a".to_string()),
+            Expr::String("b".to_string()),
+            Expr::String("c".to_string())
+        ])
+    );
+}
+
+#[test]
+fn test_split_string_no_delimiter() {
+    let res = eval_str("(split \"hello\" 'x')").unwrap();
+    assert_eq!(res, Expr::Qexpr(vec![Expr::String("hello".to_string())]));
+}
+
+#[test]
+fn test_split_string_empty() {
+    let res = eval_str("(split \"\" ',')").unwrap();
+    assert_eq!(res, Expr::Qexpr(vec![Expr::String("".to_string())]));
+}
+
+#[test]
+fn test_split_string_consecutive_delimiters() {
+    let res = eval_str("(split \"a,,b\" ',')").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::String("a".to_string()),
+            Expr::String("".to_string()),
+            Expr::String("b".to_string())
+        ])
+    );
+}
+
+#[test]
+fn test_split_qexpr_number() {
+    let res = eval_str("(split {1 2 3 4} 2)").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::Qexpr(vec![Expr::Number(1)]),
+            Expr::Qexpr(vec![Expr::Number(3), Expr::Number(4)])
+        ])
+    );
+}
+
+#[test]
+fn test_split_qexpr_string() {
+    let res = eval_str("(split {\"a\" \"x\" \"b\" \"x\" \"c\"} \"x\")").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::Qexpr(vec![Expr::String("a".to_string())]),
+            Expr::Qexpr(vec![Expr::String("b".to_string())]),
+            Expr::Qexpr(vec![Expr::String("c".to_string())])
+        ])
+    );
+}
+
+#[test]
+fn test_split_qexpr_mixed() {
+    let res = eval_str("(split {1 \"x\" 2 \"x\" 3} \"x\")").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::Qexpr(vec![Expr::Number(1)]),
+            Expr::Qexpr(vec![Expr::Number(2)]),
+            Expr::Qexpr(vec![Expr::Number(3)])
+        ])
+    );
+}
+
+#[test]
+fn test_split_qexpr_no_delimiter() {
+    let res = eval_str("(split {1 2 3} 99)").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![Expr::Qexpr(vec![
+            Expr::Number(1),
+            Expr::Number(2),
+            Expr::Number(3)
+        ])])
+    );
+}
+
+#[test]
+fn test_split_qexpr_empty() {
+    let res = eval_str("(split {} 1)").unwrap();
+    assert_eq!(res, Expr::Qexpr(vec![Expr::Qexpr(vec![])]));
+}
+
+#[test]
+fn test_split_qexpr_consecutive_delimiters() {
+    let res = eval_str("(split {1 2 2 3} 2)").unwrap();
+    assert_eq!(
+        res,
+        Expr::Qexpr(vec![
+            Expr::Qexpr(vec![Expr::Number(1)]),
+            Expr::Qexpr(vec![]),
+            Expr::Qexpr(vec![Expr::Number(3)])
+        ])
+    );
+}
+
+#[test]
+fn test_split_wrong_arity() {
+    let res = eval_str("(split \"hello\")");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::WrongAmountOfArgs { .. }));
+}
+
+#[test]
+fn test_split_wrong_first_type() {
+    let res = eval_str("(split 123 ' ')");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::IncompatibleType { .. }));
+}
+
+#[test]
+fn test_split_wrong_second_type() {
+    let res = eval_str("(split \"hello\" \"not a char\")");
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    let err = err.downcast_ref::<Error>().unwrap();
+    assert!(matches!(err, Error::IncompatibleType { .. }));
 }

@@ -50,7 +50,7 @@ Char: char = {
 }
 
 Symbol: String = {
-  r#"[a-zA-Z\-\+_/\\!&<=>\*-]+"# => <>.to_owned()
+  r#"[a-zA-Z\-\+_/\\!&<=>\*\^\|\%]+"# => <>.to_owned()
 }
 
 Comment: String = {

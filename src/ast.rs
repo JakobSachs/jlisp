@@ -209,7 +209,13 @@ impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Number(v) => write!(f, "{}", v),
-            Expr::Float(v) => write!(f, "{}", v),
+            Expr::Float(v) => {
+                if v.fract() == 0.0 {
+                    write!(f, "{:.1}", v)
+                } else {
+                    write!(f, "{}", v)
+                }
+            }
             Expr::Symbol(v) => write!(f, "{}", v),
             Expr::Char(v) => write!(f, "'{}'", v.escape_default()),
             Expr::String(v) => write!(f, "\"{}\"", v),
@@ -332,8 +338,9 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 
     if formals.is_empty() {
         // All args bound, evaluate the body
-        // TODO: I think we can do some garbage collectoin of the Envs right here
-        match &*body {
+        // TODO: I think we can do some garbage collection of the Envs right here
+        // by using the env.remove() method afer the eval since we know the env is no longer needed
+        match body.as_ref() {
             Expr::Qexpr(inner) => {
                 if inner.is_empty() {
                     Ok(Expr::Sexpr(Vec::new()))

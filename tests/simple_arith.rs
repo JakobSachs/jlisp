@@ -40,3 +40,14 @@ fn test_div_by_zero() {
     let err = err.downcast_ref::<Error>().unwrap();
     assert!(matches!(err, Error::DivisionByZero { .. }));
 }
+
+#[test]
+fn test_int_division_resulting_in_float() {
+    // Test cases where integer division should result in float
+    let res = eval_str("(/ 3 2)").unwrap();
+    assert_eq!(res, Expr::Float(1.5));
+    let res = eval_str("(/ 10 3)").unwrap();
+    assert_eq!(res, Expr::Float(3.3333333));
+    let res = eval_str("(/ 7 2)").unwrap();
+    assert_eq!(res, Expr::Float(3.5));
+}
