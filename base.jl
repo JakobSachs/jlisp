@@ -115,5 +115,3 @@
     }  
 })
 
-; benchmark
-(print (sum (range 2000)))
