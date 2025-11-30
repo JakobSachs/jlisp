@@ -78,6 +78,12 @@ impl Env {
             }
         })
     }
+
+    pub fn remove(&self, key: &str) {
+        ENV_STORAGE.with(|storage| {
+            storage.borrow_mut()[self.0].map.remove(key);
+        })
+    }
 }
 
 impl Default for Env {
@@ -441,7 +447,9 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 
     if formals.is_empty() {
         // All args bound, evaluate the body
-        crate::builtin::builtin_eval(func, e, vec![*body.clone()], line)
+        let res = crate::builtin::builtin_eval(func, e, vec![*body.clone()], line);
+        // TODO: I think we can do some garbage collectoin of the Envs right here
+        res
     } else {
         // Partial application - return partial lambda
         Ok(Expr::Lambda {
@@ -469,26 +477,24 @@ impl Expr {
                 None => Err(Error::UndefinedSymbol { sym, line }),
             },
             Expr::Sexpr(sexpr) => {
-                let cells = sexpr
-                    .iter()
+                let mut cells = sexpr
+                    .into_iter()
                     .map(|e| e.clone().eval(env, line))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 if cells.is_empty() {
                     return Ok(Expr::Sexpr(Vec::new()));
                 } else if cells.len() == 1 {
-                    return Ok(cells[0].clone());
+                    return Ok(cells.pop().unwrap());
                 }
 
-                let (op, s_children) = cells.split_at(1);
-                assert!(op.len() == 1);
-                let children = s_children.to_vec();
+                let op = cells.remove(0);
 
-                match &op[0] {
+                match op {
                     Expr::Builtin(sym) => {
-                        crate::builtin::eval_builtin(env, sym.as_str(), children, line)
+                        crate::builtin::eval_builtin(env, sym.as_str(), cells, line)
                     }
-                    Expr::Lambda { .. } => _eval_lambda(env, op[0].clone(), children, line),
+                    Expr::Lambda { .. } => _eval_lambda(env, op, cells, line),
                     _ => Err(Error::MissingOperator { line }),
                 }
             }

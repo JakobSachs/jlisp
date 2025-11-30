@@ -116,5 +116,4 @@
 })
 
 ; benchmark
-
-; (print (sum (range 10000)))
+(print (sum (range 2000)))

@@ -2,11 +2,11 @@ use crate::ast::{Env, Error, Expr, expect_arity, expect_nonempty};
 use std::fs;
 use std::mem;
 
-fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+fn _builtin_op(sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     //check type of first member is valid
     if !matches!(args[0], Expr::Number(_) | Expr::Float(_) | Expr::Char(_)) {
         return Err(Error::IncompatibleType {
-            op: sym,
+            op: sym.to_owned(),
             expected: "Number,Float,Char".to_string(),
             received: args[0].as_str(),
             line,
@@ -20,7 +20,10 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
             args.iter().all(|x| mem::discriminant(x) == first_type)
         })
     {
-        return Err(Error::InconsistentTypes { op: sym, line });
+        return Err(Error::InconsistentTypes {
+            op: sym.to_owned(),
+            line,
+        });
     }
 
     if sym == "-" && args.len() == 1 {
@@ -29,7 +32,7 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
             Expr::Float(f) => return Ok(Expr::Float(-f)),
             _ => {
                 return Err(Error::IncompatibleType {
-                    op: sym,
+                    op: sym.to_owned(),
                     expected: "Number,Float".to_string(),
                     received: args[0].as_str(),
                     line,
@@ -40,7 +43,7 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
 
     match args[0] {
         Expr::Number(start) => {
-            let func: fn(i32, i32) -> i32 = match sym.as_str() {
+            let func: fn(i32, i32) -> i32 = match sym {
                 "+" => |a, b| a + b,
                 "-" => |a, b| a - b,
                 "*" => |a, b| a * b,
@@ -54,7 +57,7 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
                     panic!();
                 };
                 // check for valid op
-                if sym.as_str() != "/" || (sym.as_str() == "/" && *v != 0) {
+                if sym != "/" || (sym == "/" && *v != 0) {
                     out = func(out, *v);
                 } else {
                     return Err(Error::DivisionByZero { line });
@@ -63,7 +66,7 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
             Ok(Expr::Number(out))
         }
         Expr::Float(start) => {
-            let func: fn(f32, f32) -> f32 = match sym.as_str() {
+            let func: fn(f32, f32) -> f32 = match sym {
                 "+" => |a, b| a + b,
                 "-" => |a, b| a - b,
                 "*" => |a, b| a * b,
@@ -77,7 +80,7 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
                     panic!();
                 };
                 // check for valid op
-                if sym.as_str() != "/" || (sym.as_str() == "/" && *v != 0.0) {
+                if sym != "/" || (sym == "/" && *v != 0.0) {
                     out = func(out, *v);
                 } else {
                     return Err(Error::DivisionByZero { line });
@@ -88,10 +91,10 @@ fn _builtin_op(sym: String, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
         _ => panic!(),
     }
 }
-fn builtin_comp(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+fn builtin_comp(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 2, line)?;
-    let a = args[0].clone();
-    let b = args[1].clone();
+    let a = args.remove(0);
+    let b = args.remove(0);
 
     let o = match func {
         "==" => {
@@ -148,12 +151,10 @@ fn builtin_join(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
     Ok(Expr::Qexpr(out))
 }
 
-
 #[inline(always)]
 pub fn builtin_eval(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 1, line)?;
-    let ls = args.into_iter().next().unwrap().into_qexpr(func, line)?;
-    Expr::Sexpr(ls).eval(e, line)
+    Expr::Sexpr(args.into_iter().next().unwrap().into_qexpr(func, line)?).eval(e, line)
 }
 
 fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
@@ -162,22 +163,38 @@ fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<Expr,
     // check symbols
     let symbols = args[0].clone().into_qexpr(func, line)?;
     for s in symbols.iter() {
-        s.clone().into_symbol(func, line)?;
+        if let Expr::Symbol(_) = s {
+            // all gud
+        } else {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "Symbol".to_string(),
+                received: s.as_str(),
+                line,
+            });
+        }
     }
 
-    // match lenght
+    // match length
     expect_arity(func, &args, symbols.len() + 1, line)?;
-    for (sy, ar) in symbols.iter().zip(args.iter().skip(1)) {
-        let sy = sy.clone().into_symbol(func, line)?;
+    for (sy, ar) in symbols.into_iter().zip(args.into_iter().skip(1)) {
+        let Expr::Symbol(sy) = sy else {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "Symbol".to_string(),
+                received: sy.as_str(),
+                line,
+            });
+        };
         match func {
             "def" => {
                 // Insert into root environment
                 let root = e.root();
-                root.insert(sy.clone(), ar.clone());
+                root.insert(sy, ar);
             }
             "=" => {
                 // Insert into current environment
-                e.insert(sy.clone(), ar.clone());
+                e.insert(sy, ar);
             }
             _ => panic!(),
         }
@@ -189,12 +206,36 @@ fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
     expect_arity(func, &args, 2, line)?;
 
     // check arg types
-    let formals = args[0].clone().into_qexpr(func, line)?;
-    let _ = args[1].clone().into_qexpr(func, line)?; // rest 
+    let Expr::Qexpr(formals) = args.get(0).unwrap() else {
+        return Err(Error::IncompatibleType {
+            op: func.to_string(),
+            expected: "Qexpr".to_string(),
+            received: args[0].as_str(),
+            line: line,
+        });
+    };
 
     for f in formals.iter() {
-        let _ = f.clone().into_symbol(func, line)?;
+        // check all formals are symbols
+        let Expr::Symbol(_) = f else {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "Symbol".to_string(),
+                received: f.as_str(),
+                line: line,
+            });
+        };
     }
+
+    // check body is a qexpr
+    let Expr::Qexpr(body) = args.get(1).unwrap() else {
+        return Err(Error::IncompatibleType {
+            op: func.to_string(),
+            expected: "Qexpr".to_string(),
+            received: args[1].as_str(),
+            line: line,
+        });
+    };
 
     // create a new environment for the lambda that captures the current environment
     let lambda_env = Env::child(e);
@@ -202,7 +243,7 @@ fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
     Ok(Expr::Lambda {
         env: lambda_env,
         formals: formals.to_vec(),
-        body: Box::new(args[1].clone()),
+        body: Box::new(Expr::Qexpr(body.to_vec())), // shouldnt create new mem i think
     })
 }
 
@@ -309,14 +350,22 @@ fn builtin_int(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> 
         }),
     }
 }
-fn builtin_sort(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+fn builtin_sort(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 1, line)?;
 
-    let mut nums: Vec<i32> = args[0]
-        .clone()
+    let mut nums: Vec<i32> = args
+        .remove(0)
         .into_qexpr(func, line)?
         .iter()
-        .map(|e| e.clone().into_number(func, line))
+        .map(|e| match e {
+            Expr::Number(i) => Ok(*i),
+            _ => Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "Number".to_string(),
+                received: e.as_str(),
+                line: line,
+            }),
+        })
         .collect::<Result<Vec<_>, Error>>()?; // returns on error
     nums.sort();
     Ok(Expr::Qexpr(nums.iter().map(|i| Expr::Number(*i)).collect()))
@@ -325,7 +374,7 @@ fn builtin_sort(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error>
 #[inline(always)]
 pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     if matches!(sym, "+" | "-" | "*" | "/") {
-        return _builtin_op(sym.to_string(), args, line);
+        return _builtin_op(sym, args, line);
     }
 
     if matches!(sym, "==" | "!=") {
