@@ -35,9 +35,9 @@ use collections::{
     builtin_tail,
 };
 use comparison::{builtin_comp, builtin_logic, builtin_ord};
-pub use core::{builtin_eval, builtin_if, builtin_lambda, builtin_var};
+pub use core::{builtin_eval, builtin_fun, builtin_if, builtin_lambda, builtin_var};
 use helpers::{builtin_print, builtin_range, builtin_sort};
-use io::{builtin_load, builtin_read};
+use io::{builtin_load, builtin_read, builtin_error};
 use math::{
     builtin_abs, builtin_ceil, builtin_cos, builtin_exp, builtin_floor, builtin_log, builtin_max,
     builtin_min, builtin_round, builtin_sin, builtin_sqrt, builtin_tan, builtin_truncate,
@@ -85,6 +85,8 @@ pub fn eval_builtin(env: Env, sym: &str, args: Vec<Expr>, line: usize) -> Result
         "if" => |s, a, l| builtin_if(s, env, a, l),
         "load" => |s, a, l| builtin_load(s, env, a, l),
         "read" => builtin_read,
+        "error" => builtin_error,
+        "fun" => |s, a, l| builtin_fun(s, env, a, l),
         "chars" => builtin_chars,
         "int" => builtin_int,
         "sort" => builtin_sort,
@@ -117,9 +119,9 @@ pub fn setup_builtins() -> Env {
         "and", "or", "not",
         "head", "last", "tail", "list", "join",
         "range", "eval", "if", "print", "load", "read",
-        "=", "def", "\\", "chars", "int", "sort", "len", "str-sub", "split",
+        "=", "def", "\\", "fun", "chars", "int", "sort", "len", "str-sub", "split",
         "sqrt", "abs", "min", "max", "floor", "ceil", "round",
-        "sin", "cos", "tan", "log", "exp", "truncate"
+        "sin", "cos", "tan", "log", "exp", "truncate", "error"
     ];
 
     for op in builtins {

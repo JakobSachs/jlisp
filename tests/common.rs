@@ -17,7 +17,7 @@ pub fn eval_str(input: &str) -> Result<Expr, Box<dyn std::error::Error + '_>> {
 pub fn eval_str_persistent(input: &str) -> Result<Expr, Box<dyn std::error::Error + '_>> {
     let pe = jlisp::grammar::ExprParser::new();
     let pres = pe.parse(input)?;
-    let res = PERSISTENT_ENV.with(|env| pres.eval(env.borrow().clone(), 0))?;
+    let res = PERSISTENT_ENV.with(|env| pres.eval(*env.borrow(), 0))?;
     Ok(res)
 }
 

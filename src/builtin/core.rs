@@ -83,14 +83,18 @@ pub fn builtin_var(e: Env, func: &str, args: Vec<Expr>, line: usize) -> Result<E
 pub fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 2, line)?;
 
-    // check arg types
-    let Expr::List(formals) = args.first().unwrap() else {
-        return Err(Error::IncompatibleType {
-            op: func.to_string(),
-            expected: "List".to_string(),
-            received: args[0].as_str(),
-            line,
-        });
+    // check arg types - accept both List and Sexpr for formals
+    let formals = match args.first().unwrap() {
+        Expr::List(formals) => formals.to_vec(),
+        Expr::Sexpr(sexpr) => sexpr.to_vec(),
+        _ => {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "List or Sexpr".to_string(),
+                received: args[0].as_str(),
+                line,
+            });
+        }
     };
 
     for f in formals.iter() {
@@ -105,14 +109,18 @@ pub fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Resul
         };
     }
 
-    // check body is a list
-    let Expr::List(body) = args.get(1).unwrap() else {
-        return Err(Error::IncompatibleType {
-            op: func.to_string(),
-            expected: "List".to_string(),
-            received: args[1].as_str(),
-            line,
-        });
+    // check body is a list or sexpr
+    let body = match args.get(1).unwrap() {
+        Expr::List(body) => body.to_vec(),
+        Expr::Sexpr(sexpr) => sexpr.to_vec(),
+        _ => {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "List or Sexpr".to_string(),
+                received: args[1].as_str(),
+                line,
+            });
+        }
     };
 
     // create a new environment for the lambda that captures the current environment
@@ -120,8 +128,8 @@ pub fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Resul
 
     Ok(Expr::Lambda {
         env: lambda_env,
-        formals: formals.to_vec(),
-        body: Box::new(Expr::List(body.to_vec())), // shouldnt create new mem i think
+        formals: formals,
+        body: Box::new(Expr::List(body)), // shouldnt create new mem i think
     })
 }
 
@@ -137,4 +145,60 @@ pub fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Ex
     } else {
         fbr.eval(e, line)
     }
+}
+
+pub fn builtin_fun(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    expect_arity(func, &args, 2, line)?;
+
+    // Get the name-and-params list
+    let name_and_params = match args.first().unwrap() {
+        Expr::List(list) => list.to_vec(),
+        Expr::Sexpr(sexpr) => sexpr.to_vec(),
+        _ => {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "List or Sexpr".to_string(),
+                received: args[0].as_str(),
+                line,
+            });
+        }
+    };
+
+    if name_and_params.is_empty() {
+        return Err(Error::WrongAmountOfArgs {
+            func: func.to_string(),
+            expected: 1,
+            received: 0,
+            line,
+        });
+    }
+
+    // Extract function name and parameters
+    let func_name = match &name_and_params[0] {
+        Expr::Symbol(name) => name.clone(),
+        _ => {
+            return Err(Error::IncompatibleType {
+                op: func.to_string(),
+                expected: "Symbol".to_string(),
+                received: name_and_params[0].as_str(),
+                line,
+            });
+        }
+    };
+
+    let params = name_and_params[1..].to_vec();
+    let body = args.get(1).unwrap().clone();
+
+    // Create the lambda
+    let lambda = Expr::Lambda {
+        env: Env::child(e),
+        formals: params,
+        body: Box::new(body),
+    };
+
+    // Define the function
+    let root = e.root();
+    root.insert(func_name, lambda);
+
+    Ok(Expr::Sexpr(Vec::new()))
 }

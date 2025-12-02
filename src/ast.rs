@@ -245,14 +245,14 @@ impl fmt::Display for Expr {
                 write!(f, ")")
             }
             Expr::List(vals) => {
-                write!(f, "{{")?;
+                write!(f, "[")?;
                 for (i, v) in vals.iter().enumerate() {
                     if i > 0 {
                         write!(f, " ")?;
                     }
                     write!(f, "{}", v)?;
                 }
-                write!(f, "}}")
+                write!(f, "]")
             }
             Expr::Comment(_) => write!(f, "()"),
         }
@@ -384,24 +384,33 @@ impl Expr {
                 None => Err(Error::UndefinedSymbol { sym, line }),
             },
             Expr::Sexpr(sexpr) => {
-                let mut cells = sexpr
-                    .into_iter()
-                    .map(|e| e.clone().eval(env, line))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                if cells.is_empty() {
+                if sexpr.is_empty() {
                     return Ok(Expr::Sexpr(Vec::new()));
-                } else if cells.len() == 1 {
-                    return Ok(cells.pop().unwrap());
+                } else if sexpr.len() == 1 {
+                    return sexpr[0].clone().eval(env, line);
                 }
 
-                let op = cells.remove(0);
+                let op = sexpr[0].clone().eval(env, line)?;
+                let args = sexpr[1..].to_vec();
+
+                // Special handling for lambda and fun builtin - don't evaluate arguments
+                if let Expr::Builtin(sym) = &op {
+                    if sym == "\\" || sym == "fun" {
+                        return crate::builtin::eval_builtin(env, sym.as_str(), args, line);
+                    }
+                }
+
+                // Evaluate all arguments for other operators
+                let evaluated_args = args
+                    .into_iter()
+                    .map(|e| e.eval(env, line))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 match op {
                     Expr::Builtin(sym) => {
-                        crate::builtin::eval_builtin(env, sym.as_str(), cells, line)
+                        crate::builtin::eval_builtin(env, sym.as_str(), evaluated_args, line)
                     }
-                    Expr::Lambda { .. } => _eval_lambda(env, op, cells, line),
+                    Expr::Lambda { .. } => _eval_lambda(env, op, evaluated_args, line),
                     _ => Err(Error::MissingOperator { line }),
                 }
             }

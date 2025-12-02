@@ -44,3 +44,9 @@ pub fn builtin_read(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Er
         }
     )
 }
+
+pub fn builtin_error(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
+    expect_arity(func, &args, 1, line)?;
+    let msg = args[0].clone().into_string(func, line)?;
+    Err(Error::ParseError { msg, line })
+}
