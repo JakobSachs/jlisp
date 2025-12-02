@@ -12,7 +12,7 @@ pub fn builtin_range(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, E
         });
     };
 
-    Ok(Expr::Qexpr((0..rng).map(Expr::Number).collect()))
+    Ok(Expr::List((0..rng).map(Expr::Number).collect()))
 }
 
 pub fn builtin_sort(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
@@ -20,7 +20,7 @@ pub fn builtin_sort(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr
 
     let mut nums: Vec<i32> = args
         .remove(0)
-        .into_qexpr(func, line)?
+        .into_list(func, line)?
         .iter()
         .map(|e| match e {
             Expr::Number(i) => Ok(*i),
@@ -33,7 +33,7 @@ pub fn builtin_sort(func: &str, mut args: Vec<Expr>, line: usize) -> Result<Expr
         })
         .collect::<Result<Vec<_>, Error>>()?; // returns on error
     nums.sort();
-    Ok(Expr::Qexpr(nums.iter().map(|i| Expr::Number(*i)).collect()))
+    Ok(Expr::List(nums.iter().map(|i| Expr::Number(*i)).collect()))
 }
 
 pub fn builtin_print(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {

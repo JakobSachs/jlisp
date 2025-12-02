@@ -25,7 +25,7 @@ pub enum Expr {
     String(String),
     Comment(String),
     Sexpr(Vec<Expr>),
-    Qexpr(Vec<Expr>),
+    List(Vec<Expr>),
 }
 
 impl PartialEq for Expr {
@@ -102,8 +102,8 @@ impl PartialEq for Expr {
                 }
                 true
             }
-            Expr::Qexpr(cells) => {
-                let Expr::Qexpr(cells_other) = other else {
+            Expr::List(cells) => {
+                let Expr::List(cells_other) = other else {
                     panic!();
                 };
                 if cells.len() != cells_other.len() {
@@ -149,7 +149,7 @@ impl Expr {
             Expr::String(_) => "String".to_string(),
             Expr::Comment(_) => "Comment".to_string(),
             Expr::Sexpr(_) => "Sexpr".to_string(),
-            Expr::Qexpr(_) => "Qexpr".to_string(),
+            Expr::List(_) => "List".to_string(),
         }
     }
 
@@ -164,8 +164,8 @@ impl Expr {
     }
 
     #[inline(always)]
-    pub fn into_qexpr(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
-        into_type!(self, Qexpr, "Qexpr", op, line)
+    pub fn into_list(self, op: &str, line: usize) -> Result<Vec<Expr>, Error> {
+        into_type!(self, List, "List", op, line)
     }
 
     #[inline(always)]
@@ -244,7 +244,7 @@ impl fmt::Display for Expr {
                 }
                 write!(f, ")")
             }
-            Expr::Qexpr(vals) => {
+            Expr::List(vals) => {
                 write!(f, "{{")?;
                 for (i, v) in vals.iter().enumerate() {
                     if i > 0 {
@@ -320,7 +320,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
 
             // take rest of args and quit loop
             let rest_args: Vec<_> = args.iter().skip(i + 1).cloned().collect();
-            lambda_env.insert(rest_sym.clone(), Expr::Qexpr(rest_args));
+            lambda_env.insert(rest_sym.clone(), Expr::List(rest_args));
             break;
         }
 
@@ -334,7 +334,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
         if list_sym == "&" {
             expect_arity(func, &formals, 2, line)?;
             let bind_sym = formals.get(1).unwrap().clone().into_symbol(func, line)?;
-            lambda_env.insert(bind_sym.clone(), Expr::Qexpr(Vec::new()));
+            lambda_env.insert(bind_sym.clone(), Expr::List(Vec::new()));
             formals.clear();
         }
     }
@@ -344,7 +344,7 @@ fn _eval_lambda(_env: Env, op: Expr, args: Vec<Expr>, line: usize) -> Result<Exp
         // TODO: I think we can do some garbage collection of the Envs right here
         // by using the env.remove() method afer the eval since we know the env is no longer needed
         match body.as_ref() {
-            Expr::Qexpr(inner) => {
+            Expr::List(inner) => {
                 if inner.is_empty() {
                     Ok(Expr::Sexpr(Vec::new()))
                 } else if !inner.is_empty() && matches!(inner[0], Expr::Symbol(_)) {
@@ -375,7 +375,7 @@ impl Expr {
             | Expr::Float(_)
             | Expr::Char(_)
             | Expr::String(_)
-            | Expr::Qexpr(_)
+            | Expr::List(_)
             | Expr::Builtin(_)
             | Expr::Lambda { .. } => Ok(self),
             Expr::Comment(_) => Ok(Expr::Sexpr(Vec::new())),

@@ -28,7 +28,7 @@ pub Expr: Expr  =  {
   <s:Char> => Expr::Char(s),
   <s:String> => Expr::String(s),
   <s:Sexpr> => Expr::Sexpr(s),
-  <q:Qexpr> => Expr::Qexpr(q),
+  <q:List> => Expr::List(q),
   <c:Comment> => Expr::Comment(c),
 }
 
@@ -36,8 +36,8 @@ Sexpr = {
   "(" <Expr*> ")"
 }
 
-Qexpr = {
-  "{" <Expr*> "}"
+List = {
+  "[" <Expr*> "]"
 }
 
 Number: i32 = {

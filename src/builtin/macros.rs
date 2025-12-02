@@ -1,7 +1,7 @@
-macro_rules! single_qexpr_op {
+macro_rules! single_list_op {
     ($args:expr, $func:expr, $line:expr, $op:expr) => {{
         expect_arity($func, &$args, 1, $line)?;
-        let ls = $args.into_iter().next().unwrap().into_qexpr($func, $line)?;
+        let ls = $args.into_iter().next().unwrap().into_list($func, $line)?;
         expect_nonempty($func, &ls, $line)?;
         $op(ls)
     }};
@@ -28,6 +28,6 @@ macro_rules! single_string_op {
     }};
 }
 
-pub(crate) use single_qexpr_op;
+pub(crate) use single_list_op;
 pub(crate) use single_string_op;
 pub(crate) use two_number_op;

@@ -3,7 +3,7 @@ use crate::ast::{Error, Expr, expect_arity};
 pub fn builtin_chars(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 1, line)?;
     let s = args[0].clone().into_string(func, line)?;
-    Ok(Expr::Qexpr(s.chars().map(Expr::Char).collect()))
+    Ok(Expr::List(s.chars().map(Expr::Char).collect()))
 }
 
 pub fn builtin_int(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
