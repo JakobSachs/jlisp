@@ -1,6 +1,19 @@
 use crate::ast::{Error, Expr, expect_arity, expect_nonempty};
 use crate::builtin::macros::single_list_op;
 
+/// Return the first element of a single list argument.
+///
+/// Returns `Ok(expr)` containing the first element of the provided list, or `Err` if the function was called with the wrong arity or the list is empty.
+///
+/// # Examples
+///
+/// ```
+/// use crate::ast::Expr;
+/// // construct args: a single list containing two strings
+/// let args = vec![Expr::List(vec![Expr::String("a".to_string()), Expr::String("b".to_string())])];
+/// let res = crate::builtin::list_ops::builtin_head("head", args, 1).unwrap();
+/// assert_eq!(res, Expr::String("a".to_string()));
+/// ```
 pub fn builtin_head(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     single_list_op!(args, func, line, |ls: Vec<Expr>| Ok(ls
         .into_iter()
@@ -8,6 +21,19 @@ pub fn builtin_head(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Er
         .unwrap()))
 }
 
+/// Retrieve the last element of a single list argument.
+///
+/// # Returns
+///
+/// `Ok` containing the last element of the provided list, or an `Error` if the argument arity/type checks fail.
+///
+/// # Examples
+///
+/// ```
+/// let args = vec![Expr::List(vec![Expr::String("a".into()), Expr::String("b".into())])];
+/// let res = builtin_last("last", args, 1).unwrap();
+/// assert_eq!(res, Expr::String("b".into()));
+/// ```
 pub fn builtin_last(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     single_list_op!(args, func, line, |ls: Vec<Expr>| Ok(ls
         .into_iter()
