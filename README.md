@@ -12,3 +12,6 @@ I also built all of this on my IBM Thinkpad T34 with the goal of using it for th
 
 - Better error messages
 - remove unnecessary copy/clones
+
+- head/tail for strings
+

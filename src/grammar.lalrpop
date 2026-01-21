@@ -68,7 +68,7 @@ Char: char = {
 }
 
 Symbol: String = {
-  r#"[a-zA-Z\-\+_/\\!&<=>\*\^\|\%]+"# => <>.to_owned()
+  r#"([a-zA-Z_/\\!&<=>\*\^\|\%][a-zA-Z0-9\-\+_/\\!&<=>\*\^\|\%]*)|[\-\+]"# => <>.to_owned()
 }
 
 Comment: String = {
