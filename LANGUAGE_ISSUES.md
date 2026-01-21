@@ -79,14 +79,16 @@ The `if` implementation converts both branches to S-expressions using `.into_lis
     [(good-parse (tail lines) (join acc (list 1)))]])
 ```
 
+**!HAS BEEN FIXED!** The `if` builtin now evaluates branches directly without type conversion, preserving empty lists. Both branches are evaluated as-is, allowing `[]` to remain a list instead of becoming `()`.
+
 ---
 
 ## Summary
 
-These issues were discovered while implementing a CSV parser that reads a file and returns a 2D array structure. The workarounds required:
+These issues were discovered while implementing a CSV parser that reads a file and returns a 2D array structure. All three issues have been fixed:
 
-1. Using hyphenated variable names instead of numbered ones
-2. Using `(last (head list))` to unwrap the first element of a list
-3. Using accumulator-based tail recursion to avoid needing empty list returns from `if`
+1. ✅ Variable names can now contain digits (fixed in grammar)
+2. ✅ `head` and `last` now both return unwrapped elements consistently
+3. ✅ The `if` builtin now preserves empty lists correctly
 
 The final working CSV parser can be found in `csv.jl`.

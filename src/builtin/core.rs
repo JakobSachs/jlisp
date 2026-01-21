@@ -137,13 +137,11 @@ pub fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Resul
 pub fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 3, line)?;
     let cond = args[0].clone().into_number(func, line)?;
-    let tbr = Expr::Sexpr(args[1].clone().into_list(func, line)?);
-    let fbr = Expr::Sexpr(args[2].clone().into_list(func, line)?);
 
     if cond != 0 {
-        tbr.eval(e, line)
+        args[1].clone().eval(e, line)
     } else {
-        fbr.eval(e, line)
+        args[2].clone().eval(e, line)
     }
 }
 
