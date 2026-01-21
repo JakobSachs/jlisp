@@ -2,9 +2,10 @@ use crate::ast::{Error, Expr, expect_arity, expect_nonempty};
 use crate::builtin::macros::single_list_op;
 
 pub fn builtin_head(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
-    single_list_op!(args, func, line, |ls: Vec<Expr>| Ok(Expr::List(vec![
-        ls.into_iter().next().unwrap()
-    ])))
+    single_list_op!(args, func, line, |ls: Vec<Expr>| Ok(ls
+        .into_iter()
+        .next()
+        .unwrap()))
 }
 
 pub fn builtin_last(func: &str, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
