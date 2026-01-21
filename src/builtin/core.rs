@@ -133,6 +133,25 @@ pub fn builtin_lambda(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Resul
     })
 }
 
+/// Evaluates one of two expressions based on a numeric condition.
+///
+/// The first argument is converted to a number; a non-zero value selects the second
+/// argument (the "then" branch), otherwise the third argument (the "else" branch)
+/// is evaluated and returned. Validation errors (wrong arity or incompatible types)
+/// and evaluation errors are propagated.
+///
+/// # Returns
+///
+/// `Expr` produced by evaluating the chosen branch, or an `Error` if validation or evaluation fails.
+///
+/// # Examples
+///
+/// ```
+/// // Evaluate (if 1 42 0) => 42
+/// let env = Env::root();
+/// let res = builtin_if("if", env, vec![Expr::Number(1.0), Expr::Number(42.0), Expr::Number(0.0)], 1).unwrap();
+/// assert_eq!(res, Expr::Number(42.0));
+/// ```
 #[inline(always)]
 pub fn builtin_if(func: &str, e: Env, args: Vec<Expr>, line: usize) -> Result<Expr, Error> {
     expect_arity(func, &args, 3, line)?;
